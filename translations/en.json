@@ -2,43 +2,30 @@
     "config": {
         "step": {
             "user": {
-                "title": "Connect to Computherm B Series",
-                "description": "Please enter your Computherm B Series account credentials",
+                "title": "Connect to Computherm",
+                "description": "Please enter your Computherm B Series credentials",
                 "data": {
-                    "username": "Username",
+                    "username": "Email",
                     "password": "Password"
                 }
             }
         },
         "error": {
-            "cannot_connect": "Failed to connect to Computherm B Series API",
-            "invalid_auth": "Invalid username or password",
-            "no_devices": "No B Series devices found in your account",
+            "cannot_connect": "Failed to connect to Computherm servers",
+            "invalid_auth": "Invalid authentication credentials",
             "unknown": "Unexpected error occurred"
         },
         "abort": {
-            "already_configured": "This Computherm B Series account is already configured"
+            "already_configured": "Device is already configured"
         }
     },
     "entity": {
         "climate": {
-            "computherm": {
+            "computherm_thermostat": {
                 "state_attributes": {
-                    "current_temperature": {
-                        "name": "Current Temperature"
-                    },
-                    "target_temperature": {
-                        "name": "Target Temperature"
-                    },
-                    "operation_mode": {
-                        "name": "Operation Mode",
-                        "state": {
-                            "heat": "Heat",
-                            "off": "Off"
-                        }
-                    },
-                    "is_heating": {
-                        "name": "Heating Status"
+                    "preset_mode": {
+                        "home": "Home",
+                        "away": "Away"
                     }
                 }
             }

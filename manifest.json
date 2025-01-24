@@ -1,16 +1,17 @@
 {
-  "domain": "computherm",
+  "domain": "computherm_b",
   "name": "Computherm B Series",
-  "documentation": "https://github.com/yourusername/ha-computherm",
-  "issue_tracker": "https://github.com/yourusername/ha-computherm/issues",
-  "dependencies": [],
-  "codeowners": ["@yourusername"],
-  "requirements": ["aiohttp>=3.8.0", "websockets>=10.0"],
-  "iot_class": "cloud_push",
-  "version": "1.0.0",
+  "codeowners": [],
   "config_flow": true,
-  "zeroconf": [],
-  "ssdp": [],
+  "dependencies": [],
+  "documentation": "https://www.home-assistant.io/integrations/computherm_b",
   "homekit": {},
-  "integration_type": "hub"
+  "iot_class": "cloud_push",
+  "requirements": [
+    "websockets>=10.0",
+    "aiohttp>=3.8.0"
+  ],
+  "ssdp": [],
+  "zeroconf": [],
+  "version": "1.0.0"
 }

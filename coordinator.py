@@ -1,11 +1,9 @@
 """DataUpdateCoordinator for Computherm integration."""
 import asyncio
-import json
 import logging
-import re
-from datetime import timedelta
-import websockets
+from typing import Any
 
+from aiohttp import ClientError, ClientResponseError
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
@@ -16,22 +14,25 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     DOMAIN,
-    DEFAULT_SCAN_INTERVAL,
     API_BASE_URL,
     API_LOGIN_ENDPOINT,
     API_DEVICES_ENDPOINT,
-    WEBSOCKET_URL,
-    WEBSOCKET_PING_INTERVAL,
-    WS_SUBSCRIBE_MESSAGE,
-    WS_PING_MESSAGE,
-    WS_TEMPERATURE_EVENT,
-    WS_RELAY_EVENT,
-    WS_RELAY_STATE_ON,
+    ATTR_SERIAL_NUMBER,
+    ATTR_DEVICE_TYPE,
+    ATTR_FW_VERSION,
+    ATTR_DEVICE_IP,
+    ATTR_ACCESS_STATUS,
+    ATTR_TEMPERATURE,
+    ATTR_TARGET_TEMPERATURE,
+    ATTR_ONLINE,
+    ATTR_OPERATION_MODE,
+    ATTR_RELAY_STATE,
 )
+from .websocket import WebSocketClient
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__package__)
 
-class ComputhermDataUpdateCoordinator(DataUpdateCoordinator):
+class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Class to manage fetching Computherm data."""
 
     def __init__(
@@ -53,33 +54,47 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator):
         self.auth_token = None
         self.devices = {}
         self.device_data = {}
-        self.websocket = None
-        self._ws_task = None
-        self._ping_task = None
-        self._sid = None
+        self._ws_client: WebSocketClient | None = None
 
-    async def _async_update_data(self):
+    async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API endpoint."""
         try:
             if not self.auth_token:
+                _LOGGER.debug("No auth token, authenticating...")
                 await self._authenticate()
                 await self._fetch_devices()
+                await self._setup_websocket()
+                _LOGGER.debug("Initial setup completed successfully")
+            elif not self._ws_client or self._ws_client.websocket is None:
+                _LOGGER.debug("WebSocket disconnected, reconnecting...")
                 await self._setup_websocket()
 
             return self.device_data
 
         except asyncio.TimeoutError as error:
-            raise UpdateFailed(f"Timeout communicating with API: {error}")
+            _LOGGER.error("Timeout communicating with API")
+            raise UpdateFailed("Connection timed out") from error
+        except ClientResponseError as error:
+            if error.status == 401:
+                _LOGGER.error("Authentication token expired or invalid")
+                self.auth_token = None  # Clear token to force re-authentication
+                raise ConfigEntryAuthFailed("Authentication failed") from error
+            _LOGGER.error("API error: %s", error)
+            raise UpdateFailed(f"API error: {error.status}") from error
+        except ClientError as error:
+            _LOGGER.error("Network error: %s", error)
+            raise UpdateFailed("Network connection failed") from error
         except Exception as error:
-            raise UpdateFailed(f"Error communicating with API: {error}")
+            _LOGGER.exception("Unexpected error")
+            raise UpdateFailed(f"Unexpected error: {str(error)}") from error
 
-    async def _authenticate(self):
+    async def _authenticate(self) -> None:
         """Authenticate with the API."""
         try:
             async with self.session.post(
                 f"{API_BASE_URL}{API_LOGIN_ENDPOINT}",
                 json={
-                    "username": self.config_entry.data["username"],
+                    "email": self.config_entry.data["username"],
                     "password": self.config_entry.data["password"],
                 },
             ) as resp:
@@ -88,10 +103,19 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator):
                 resp.raise_for_status()
                 result = await resp.json()
                 self.auth_token = result.get("token") or result.get("access_token")
+                if not self.auth_token:
+                    raise ConfigEntryAuthFailed("No authentication token received")
+                _LOGGER.debug("Authentication successful")
+        except ClientResponseError as error:
+            if error.status == 401:
+                raise ConfigEntryAuthFailed("Invalid credentials") from error
+            raise UpdateFailed(f"Authentication failed with status {error.status}") from error
+        except ClientError as error:
+            raise UpdateFailed(f"Network error during authentication: {error}") from error
         except Exception as error:
-            raise ConfigEntryAuthFailed(f"Authentication failed: {error}")
+            raise UpdateFailed(f"Unexpected error during authentication: {error}") from error
 
-    async def _fetch_devices(self):
+    async def _fetch_devices(self) -> None:
         """Fetch list of devices for the user."""
         try:
             async with self.session.get(
@@ -104,133 +128,99 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator):
                 devices = await resp.json()
                 
                 # Store device information
-                self.devices = {
-                    device["id"]: device
-                    for device in devices
-                }
+                self.devices = {}
+                for device in devices:
+                    serial = device.get(ATTR_SERIAL_NUMBER)
+                    if serial:
+                        self.devices[serial] = {
+                            "id": device.get("id"),
+                            ATTR_SERIAL_NUMBER: serial,
+                            "brand": device.get("brand"),
+                            "type": device.get("type"),
+                            "user_id": device.get("user_id"),
+                            ATTR_FW_VERSION: device.get(ATTR_FW_VERSION),
+                            ATTR_DEVICE_IP: device.get(ATTR_DEVICE_IP),
+                            ATTR_DEVICE_TYPE: device.get(ATTR_DEVICE_TYPE),
+                            ATTR_ACCESS_STATUS: device.get(ATTR_ACCESS_STATUS),
+                            "access_rules": device.get("access_rules", {})
+                        }
+                    else:
+                        _LOGGER.warning("Device without serial number found: %s", device)
                 
                 if not self.devices:
-                    _LOGGER.error("No devices found for user")
-                    
-        except Exception as error:
-            raise UpdateFailed(f"Failed to fetch devices: {error}")
-
-    async def _setup_websocket(self):
-        """Set up WebSocket connection."""
-        if self._ws_task and not self._ws_task.done():
-            return
-
-        self._ws_task = asyncio.create_task(self._websocket_listener())
-
-    async def _websocket_listener(self):
-        """Listen to WebSocket messages."""
-        while True:
-            try:
-                async with websockets.connect(WEBSOCKET_URL) as websocket:
-                    self.websocket = websocket
-                    _LOGGER.debug("WebSocket connected")
-
-                    # Handle initial connection message
-                    message = await websocket.recv()
-                    if message.startswith("0"):
-                        data = json.loads(message[1:])
-                        self._sid = data.get("sid")
-                        
-                        # Start ping task
-                        if self._ping_task is None or self._ping_task.done():
-                            self._ping_task = asyncio.create_task(
-                                self._ping_websocket(websocket)
-                            )
-
-                        # Subscribe to all devices
-                        for device_id in self.devices:
-                            subscribe_msg = WS_SUBSCRIBE_MESSAGE.format(device_id=device_id)
-                            await websocket.send(subscribe_msg)
-                            _LOGGER.debug("Subscribed to device %s", device_id)
-
-                        # Process incoming messages
-                        while True:
-                            message = await websocket.recv()
-                            await self._handle_ws_message(message)
-
-            except websockets.exceptions.ConnectionClosed:
-                _LOGGER.warning("WebSocket connection closed, reconnecting...")
-            except Exception as error:
-                _LOGGER.error("WebSocket error: %s", error)
-
-            await asyncio.sleep(5)  # Wait before reconnecting
-
-    async def _ping_websocket(self, websocket):
-        """Send periodic ping messages to keep the connection alive."""
-        while True:
-            try:
-                await asyncio.sleep(WEBSOCKET_PING_INTERVAL)
-                if websocket.open:
-                    await websocket.send(WS_PING_MESSAGE)
-                    _LOGGER.debug("Ping sent")
+                    _LOGGER.warning("No devices found for user")
+                    await self.async_stop()
+                    self.device_data = {}  # Clear any existing device data
                 else:
-                    break
-            except Exception as error:
-                _LOGGER.error("Error sending ping: %s", error)
-                break
-
-    async def _handle_ws_message(self, message: str):
-        """Handle incoming WebSocket message."""
-        if not message.startswith("42/devices"):
-            return
-
-        try:
-            # Extract the JSON part of the message
-            match = re.match(r'42/devices,(.+)', message)
-            if not match:
-                return
-
-            data = json.loads(match.group(1))
-            if not isinstance(data, list) or len(data) != 2 or data[0] != "event":
-                return
-
-            event_data = data[1]
-            device_id = event_data.get("serial_number")
-            if not device_id or device_id not in self.device_data:
-                self.device_data[device_id] = {}
-
-            # Handle temperature readings
-            if "readings" in event_data:
-                for reading in event_data["readings"]:
-                    if reading["type"] == WS_TEMPERATURE_EVENT:
-                        self.device_data[device_id]["temperature"] = reading["reading"]
-                        self.device_data[device_id]["online"] = event_data.get("online", False)
-
-            # Handle relay state
-            if "relays" in event_data:
-                for relay in event_data["relays"]:
-                    self.device_data[device_id]["is_heating"] = relay["relay_state"] == WS_RELAY_STATE_ON
-                    self.device_data[device_id]["online"] = event_data.get("online", False)
-
-            # Notify listeners
-            self.async_set_updated_data(self.device_data)
-
+                    _LOGGER.debug("Found devices: %s", list(self.devices.keys()))
+                    
+        except ClientResponseError as error:
+            if error.status == 401:
+                raise ConfigEntryAuthFailed("Invalid authentication") from error
+            raise UpdateFailed(f"Failed to fetch devices with status {error.status}") from error
+        except ClientError as error:
+            raise UpdateFailed(f"Network error fetching devices: {error}") from error
         except Exception as error:
-            _LOGGER.error("Error processing WebSocket message: %s", error)
+            raise UpdateFailed(f"Unexpected error fetching devices: {error}") from error
 
-    async def async_stop(self):
-        """Stop the WebSocket connection."""
-        if self._ping_task:
-            self._ping_task.cancel()
-            try:
-                await self._ping_task
-            except asyncio.CancelledError:
-                pass
-            self._ping_task = None
+    async def _setup_websocket(self) -> None:
+        """Set up WebSocket connection."""
+        try:
+            if self._ws_client:
+                await self._ws_client.stop()
+                self._ws_client = None
 
-        if self._ws_task:
-            self._ws_task.cancel()
-            try:
-                await self._ws_task
-            except asyncio.CancelledError:
-                pass
-            self._ws_task = None
+            if not self.devices:
+                _LOGGER.warning("No devices available, skipping WebSocket setup")
+                return
 
-        if self.websocket:
-            await self.websocket.close()
-            self.websocket = None
+            self._ws_client = WebSocketClient(
+                auth_token=self.auth_token,
+                device_ids=list(self.devices.keys()),
+                data_callback=self._handle_ws_update,
+            )
+            await self._ws_client.start()
+            _LOGGER.debug("WebSocket connection established")
+        except Exception as error:
+            _LOGGER.error("Failed to setup WebSocket connection: %s", error)
+            self._ws_client = None
+            raise
+
+    def _handle_ws_update(self, update: dict[str, Any]) -> None:
+        """Handle device updates from WebSocket."""
+        try:
+            for device_id, device_data in update.items():
+                if device_id in self.devices:
+                    if device_id not in self.device_data:
+                        self.device_data[device_id] = {
+                            **self.devices[device_id],
+                            ATTR_TEMPERATURE: None,
+                            ATTR_TARGET_TEMPERATURE: None,
+                            ATTR_OPERATION_MODE: None,
+                            ATTR_RELAY_STATE: None,
+                            ATTR_ONLINE: False,
+                            "is_heating": False,
+                        }
+                    self.device_data[device_id].update(device_data)
+                    _LOGGER.debug(
+                        "Updated device %s - Temp: %s, Target: %s, Mode: %s, Heating: %s",
+                        device_id,
+                        device_data.get(ATTR_TEMPERATURE),
+                        device_data.get(ATTR_TARGET_TEMPERATURE),
+                        device_data.get(ATTR_OPERATION_MODE),
+                        device_data.get("is_heating")
+                    )
+            
+            self.async_set_updated_data(self.device_data)
+        except Exception as error:
+            _LOGGER.error("Error handling WebSocket update: %s", error)
+
+    async def async_stop(self) -> None:
+        """Stop the coordinator."""
+        if self._ws_client:
+            await self._ws_client.stop()
+            self._ws_client = None
+        
+        self.devices = {}
+        self.device_data = {}
+        self.auth_token = None

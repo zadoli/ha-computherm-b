@@ -26,10 +26,17 @@ from .const import (
     COORDINATOR,
     API_BASE_URL,
     API_DEVICE_CONTROL_ENDPOINT,
+    ATTR_DEVICE_TYPE,
+    ATTR_FW_VERSION,
+    ATTR_DEVICE_IP,
+    ATTR_TEMPERATURE,
+    ATTR_TARGET_TEMPERATURE,
+    ATTR_OPERATION_MODE,
+    ATTR_ONLINE,
 )
 from .coordinator import ComputhermDataUpdateCoordinator
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__package__)
 
 SUPPORT_FLAGS = (
     ClimateEntityFeature.TARGET_TEMPERATURE |
@@ -49,8 +56,8 @@ async def async_setup_entry(
     await coordinator.async_config_entry_first_refresh()
     
     entities = []
-    for device_id, device_info in coordinator.devices.items():
-        entities.append(ComputhermThermostat(coordinator, device_id, device_info))
+    for serial, device_info in coordinator.devices.items():
+        entities.append(ComputhermThermostat(coordinator, serial))
     
     async_add_entities(entities, True)
 
@@ -68,22 +75,22 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     def __init__(
         self, 
         coordinator: ComputhermDataUpdateCoordinator,
-        device_id: str,
-        device_info: dict,
+        serial: str,
     ) -> None:
         """Initialize the thermostat."""
         super().__init__(coordinator)
-        self.device_id = device_id
-        self._device_info = device_info
+        self.device_id = serial
         
         # Set unique ID and device info
-        self._attr_unique_id = f"{DOMAIN}_{device_id}"
+        self._attr_unique_id = f"{DOMAIN}_{serial}"
         self._attr_device_info = {
-            "identifiers": {(DOMAIN, device_id)},
-            "name": device_info.get("name", f"Computherm {device_id}"),
+            "identifiers": {(DOMAIN, serial)},
+            "name": f"Computherm {serial}",
             "manufacturer": "Computherm",
-            "model": device_info.get("model", "B Series Thermostat"),
-            "sw_version": device_info.get("firmware_version"),
+            "model": self.device_data.get(ATTR_DEVICE_TYPE, "B Series Thermostat"),
+            "sw_version": self.device_data.get(ATTR_FW_VERSION),
+            "hw_version": self.device_data.get("type"),
+            "configuration_url": f"http://{self.device_data.get(ATTR_DEVICE_IP)}" if self.device_data.get(ATTR_DEVICE_IP) else None,
         }
 
     @property
@@ -94,39 +101,42 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     @property
     def current_temperature(self) -> float | None:
         """Return the current temperature."""
-        if self.device_data.get("temperature") is not None:
-            return float(self.device_data["temperature"])
+        if self.device_data.get(ATTR_TEMPERATURE) is not None:
+            return float(self.device_data[ATTR_TEMPERATURE])
         return None
 
     @property
     def target_temperature(self) -> float | None:
         """Return the target temperature."""
-        if self.device_data.get("target_temperature") is not None:
-            return float(self.device_data["target_temperature"])
+        if self.device_data.get(ATTR_TARGET_TEMPERATURE) is not None:
+            return float(self.device_data[ATTR_TARGET_TEMPERATURE])
         return None
 
     @property
     def hvac_mode(self) -> HVACMode:
         """Return the current operation mode."""
-        if not self.device_data.get("online", False):
+        if not self.device_data.get(ATTR_ONLINE, False):
             return HVACMode.OFF
-        return HVACMode.HEAT if self.device_data.get("is_heating") is not None else HVACMode.OFF
+        operation_mode = self.device_data.get(ATTR_OPERATION_MODE)
+        if operation_mode == "off":
+            return HVACMode.OFF
+        return HVACMode.HEAT
 
     @property
     def hvac_action(self) -> HVACAction | None:
         """Return the current running hvac operation."""
-        if not self.device_data.get("online", False):
+        if not self.device_data.get(ATTR_ONLINE, False):
             return HVACAction.OFF
-        if self.device_data.get("is_heating"):
+        if self.hvac_mode == HVACMode.OFF:
+            return HVACAction.OFF
+        if self.device_data.get("is_heating", False):
             return HVACAction.HEATING
-        if self.hvac_mode == HVACMode.HEAT:
-            return HVACAction.IDLE
-        return HVACAction.OFF
+        return HVACAction.IDLE
 
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return self.device_data.get("online", False)
+        return self.device_data.get(ATTR_ONLINE, False)
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set new target temperature."""
@@ -136,15 +146,25 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
 
         try:
             async with self.coordinator.session.post(
-                f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(device_id=self.device_id)}",
+                f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(serial_number=self.device_id)}",
                 headers={"Authorization": f"Bearer {self.coordinator.auth_token}"},
                 json={"target_temperature": temperature},
             ) as response:
                 response.raise_for_status()
+                _LOGGER.debug(
+                    "Set temperature to %.1f°C for device %s",
+                    temperature,
+                    self.device_id
+                )
                 await self.coordinator.async_request_refresh()
 
         except Exception as error:
-            _LOGGER.error("Failed to set temperature for device %s: %s", self.device_id, error)
+            _LOGGER.error(
+                "Failed to set temperature for device %s: %s",
+                self.device_id,
+                error
+            )
+            raise
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new operation mode."""
@@ -152,12 +172,22 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         
         try:
             async with self.coordinator.session.post(
-                f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(device_id=self.device_id)}",
+                f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(serial_number=self.device_id)}",
                 headers={"Authorization": f"Bearer {self.coordinator.auth_token}"},
                 json={"operation_mode": operation_mode},
             ) as response:
                 response.raise_for_status()
+                _LOGGER.debug(
+                    "Set operation mode to %s for device %s",
+                    operation_mode,
+                    self.device_id
+                )
                 await self.coordinator.async_request_refresh()
 
         except Exception as error:
-            _LOGGER.error("Failed to set operation mode for device %s: %s", self.device_id, error)
+            _LOGGER.error(
+                "Failed to set operation mode for device %s: %s",
+                self.device_id,
+                error
+            )
+            raise

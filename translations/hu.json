@@ -1,0 +1,46 @@
+{
+    "title": "Computherm B Sorozat",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Csatlakozás a Computherm B Sorozathoz",
+                "description": "Kérjük, adja meg Computherm B Sorozat fiókjának adatait",
+                "data": {
+                    "username": "Felhasználónév",
+                    "password": "Jelszó"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "Nem sikerült csatlakozni a Computherm B Sorozat API-hoz",
+            "invalid_auth": "Érvénytelen felhasználónév vagy jelszó",
+            "no_devices": "Nem található B Sorozatú eszköz a fiókjában",
+            "unknown": "Váratlan hiba történt"
+        },
+        "abort": {
+            "already_configured": "Ez a Computherm B Sorozat fiók már konfigurálva van"
+        }
+    },
+    "entity": {
+        "sensor": {
+            "computherm_b": {
+                "name": "Hőmérséklet"
+            }
+        },
+        "climate": {
+            "computherm_b": {
+                "state_attributes": {
+                    "hvac_action": {
+                        "heating": "Fűtés",
+                        "idle": "Készenlét",
+                        "off": "Kikapcsolva"
+                    },
+                    "hvac_mode": {
+                        "heat": "Fűtés",
+                        "off": "Kikapcsolva"
+                    }
+                }
+            }
+        }
+    }
+}
