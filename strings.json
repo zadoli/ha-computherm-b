@@ -1,0 +1,24 @@
+{
+    "title": "Computherm B Series",
+    "config": {
+        "step": {
+            "user": {
+                "title": "Connect to Computherm B Series",
+                "description": "Please enter your Computherm B Series account credentials",
+                "data": {
+                    "username": "Username",
+                    "password": "Password"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "Failed to connect to Computherm B Series API",
+            "invalid_auth": "Invalid username or password",
+            "no_devices": "No B Series devices found in your account",
+            "unknown": "Unexpected error occurred"
+        },
+        "abort": {
+            "already_configured": "This Computherm B Series account is already configured"
+        }
+    }
+}

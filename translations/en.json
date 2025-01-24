@@ -1,0 +1,47 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Connect to Computherm B Series",
+                "description": "Please enter your Computherm B Series account credentials",
+                "data": {
+                    "username": "Username",
+                    "password": "Password"
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "Failed to connect to Computherm B Series API",
+            "invalid_auth": "Invalid username or password",
+            "no_devices": "No B Series devices found in your account",
+            "unknown": "Unexpected error occurred"
+        },
+        "abort": {
+            "already_configured": "This Computherm B Series account is already configured"
+        }
+    },
+    "entity": {
+        "climate": {
+            "computherm": {
+                "state_attributes": {
+                    "current_temperature": {
+                        "name": "Current Temperature"
+                    },
+                    "target_temperature": {
+                        "name": "Target Temperature"
+                    },
+                    "operation_mode": {
+                        "name": "Operation Mode",
+                        "state": {
+                            "heat": "Heat",
+                            "off": "Off"
+                        }
+                    },
+                    "is_heating": {
+                        "name": "Heating Status"
+                    }
+                }
+            }
+        }
+    }
+}
