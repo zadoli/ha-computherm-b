@@ -83,15 +83,32 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         
         # Set unique ID and device info
         self._attr_unique_id = f"{DOMAIN}_{serial}"
-        self._attr_device_info = {
+        
+        # Log entity ID and attributes
+        _LOGGER.debug(
+            "Initializing climate entity - ID: %s, Device ID: %s, Device Data: %s",
+            self._attr_unique_id,
+            self.device_id,
+            self.device_data
+        )
+        device_info = {
             "identifiers": {(DOMAIN, serial)},
+            "serial_number": serial,
             "name": f"Computherm {serial}",
             "manufacturer": "Computherm",
-            "model": self.device_data.get(ATTR_DEVICE_TYPE, "B Series Thermostat"),
-            "sw_version": self.device_data.get(ATTR_FW_VERSION),
-            "hw_version": self.device_data.get("type"),
-            "configuration_url": f"http://{self.device_data.get(ATTR_DEVICE_IP)}" if self.device_data.get(ATTR_DEVICE_IP) else None,
+            "model": self.coordinator.devices[self.device_id].get(ATTR_DEVICE_TYPE, "") or "B Series Thermostat",
+            "sw_version": self.coordinator.devices[self.device_id].get(ATTR_FW_VERSION),
+            "hw_version": self.coordinator.devices[self.device_id].get("type"),            
         }
+        
+        # Log device info
+        _LOGGER.debug(
+            "Climate entity device info - Device: %s, Info: %s",
+            serial,
+            device_info
+        )
+        
+        self._attr_device_info = device_info
 
     @property
     def device_data(self) -> dict:

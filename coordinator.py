@@ -140,7 +140,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             "user_id": device.get("user_id"),
                             ATTR_FW_VERSION: device.get(ATTR_FW_VERSION),
                             ATTR_DEVICE_IP: device.get(ATTR_DEVICE_IP),
-                            ATTR_DEVICE_TYPE: device.get(ATTR_DEVICE_TYPE),
+                            ATTR_DEVICE_TYPE: device.get(ATTR_DEVICE_TYPE, ""),
                             ATTR_ACCESS_STATUS: device.get(ATTR_ACCESS_STATUS),
                             "access_rules": device.get("access_rules", {})
                         }

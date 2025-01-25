@@ -1,6 +1,8 @@
 """Sensor platform for Computherm integration."""
 from __future__ import annotations
 
+import logging
+
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorDeviceClass,
@@ -18,6 +20,8 @@ from .const import (
     ATTR_TEMPERATURE,
 )
 from .coordinator import ComputhermDataUpdateCoordinator
+
+_LOGGER = logging.getLogger(__package__)
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -55,9 +59,26 @@ class ComputhermTemperatureSensor(CoordinatorEntity, SensorEntity):
         
         # Set unique ID and device info
         self._attr_unique_id = f"{DOMAIN}_{serial}_temperature"
-        self._attr_device_info = {
+        
+        # Log entity ID and attributes
+        _LOGGER.debug(
+            "Initializing temperature sensor - ID: %s, Device ID: %s, Device Data: %s",
+            self._attr_unique_id,
+            self.device_id,
+            self.device_data
+        )
+        device_info = {
             "identifiers": {(DOMAIN, serial)},
         }
+        
+        # Log device info
+        _LOGGER.debug(
+            "Temperature sensor device info - Device: %s, Info: %s",
+            serial,
+            device_info
+        )
+        
+        self._attr_device_info = device_info
 
     @property
     def device_data(self) -> dict:
