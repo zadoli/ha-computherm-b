@@ -3,6 +3,40 @@ from __future__ import annotations
 
 import asyncio
 import logging
+
+# ANSI color codes
+BLUE = '\033[94m'
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+RED = '\033[91m'
+BOLD_RED = '\033[1;91m'
+RESET = '\033[0m'
+
+class ColoredFormatter(logging.Formatter):
+    """Custom formatter that adds colors based on log level."""
+    
+    COLORS = {
+        'DEBUG': BLUE,
+        'INFO': GREEN,
+        'WARNING': YELLOW,
+        'ERROR': RED,
+        'CRITICAL': BOLD_RED
+    }
+
+    def format(self, record):
+        """Format log record with colors."""
+        color = self.COLORS.get(record.levelname, RESET)
+        record.levelname = f"{color}{record.levelname}{RESET}"
+        record.msg = f"{color}{record.msg}{RESET}"
+        return super().format(record)
+
+# Set up custom logging format to include package name and filename with colors
+_formatter = ColoredFormatter('%(asctime)s %(levelname)s [%(name)s.%(filename)s] %(message)s')
+_handler = logging.StreamHandler()
+_handler.setFormatter(_formatter)
+_LOGGER = logging.getLogger(__package__)
+_LOGGER.addHandler(_handler)
+_LOGGER.propagate = False  # Prevent duplicate logging
 from datetime import timedelta
 
 import aiohttp
@@ -21,8 +55,6 @@ from homeassistant.exceptions import ConfigEntryNotReady, ConfigEntryAuthFailed
 
 from .const import DOMAIN, COORDINATOR
 from .coordinator import ComputhermDataUpdateCoordinator
-
-_LOGGER = logging.getLogger(__package__)
 
 PLATFORMS: list[Platform] = [Platform.CLIMATE, Platform.SENSOR]
 
