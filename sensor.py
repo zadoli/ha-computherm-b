@@ -47,6 +47,7 @@ class ComputhermTemperatureSensor(CoordinatorEntity, SensorEntity):
     _attr_translation_key = DOMAIN
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
 
     def __init__(
         self,
@@ -62,8 +63,6 @@ class ComputhermTemperatureSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"{DOMAIN}_{serial}_temperature"
         self._attr_name = "temperature"
 
-        self._attr_temperature_unit = hass.config.units.temperature_unit
-        
         # Log entity ID and attributes
         _LOGGER.debug(
             "Initializing temperature sensor - ID: %s, Device ID: %s, Device Data: %s",

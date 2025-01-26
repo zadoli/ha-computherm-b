@@ -65,9 +65,10 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 await self._fetch_devices()
                 await self._setup_websocket()
                 _LOGGER.debug("Initial setup completed successfully")
-            elif not self._ws_client or self._ws_client.websocket is None:
-                _LOGGER.debug("WebSocket disconnected, reconnecting...")
-                await self._setup_websocket()
+            elif self._ws_client and not self._ws_client.websocket:
+                # Only attempt reconnect if we have a client but lost connection
+                _LOGGER.debug("WebSocket disconnected, attempting reconnect...")
+                await self._ws_client.start()
 
             return self.device_data
 
@@ -166,21 +167,19 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _setup_websocket(self) -> None:
         """Set up WebSocket connection."""
         try:
-            if self._ws_client:
-                await self._ws_client.stop()
-                self._ws_client = None
+            # Only create a new client if we don't have one
+            if not self._ws_client:
+                if not self.devices:
+                    _LOGGER.warning("No devices available, skipping WebSocket setup")
+                    return
 
-            if not self.devices:
-                _LOGGER.warning("No devices available, skipping WebSocket setup")
-                return
-
-            self._ws_client = WebSocketClient(
-                auth_token=self.auth_token,
-                device_ids=list(self.devices.keys()),
-                data_callback=self._handle_ws_update,
-            )
-            await self._ws_client.start()
-            _LOGGER.debug("WebSocket connection established")
+                self._ws_client = WebSocketClient(
+                    auth_token=self.auth_token,
+                    device_ids=list(self.devices.keys()),
+                    data_callback=self._handle_ws_update,
+                )
+                await self._ws_client.start()
+                _LOGGER.debug("WebSocket connection established")
         except Exception as error:
             _LOGGER.error("Failed to setup WebSocket connection: %s", error)
             self._ws_client = None

@@ -15,6 +15,7 @@ from .const import (
     WEBSOCKET_URL,
     WS_LOGIN_MESSAGE,
     WS_SUBSCRIBE_MESSAGE,
+    WS_SCAN_MESSAGE,
     WS_PING_MESSAGE,
     WS_TEMPERATURE_EVENT,
     WS_TARGET_TEMPERATURE_EVENT,
@@ -50,39 +51,65 @@ class WebSocketClient:
         self._max_reconnect_interval = 300  # Max 5 minutes
         self._last_ping_time = None
         self._stopping = False
+        self._connecting = False  # Flag to prevent multiple simultaneous connection attempts
 
     async def start(self) -> None:
         """Start the WebSocket connection."""
+        if self._connecting:
+            _LOGGER.debug("Connection attempt already in progress")
+            return
+            
         self._stopping = False
-        if not self._ws_task or self._ws_task.done():
-            self._ws_task = asyncio.create_task(self._websocket_handler())
+        self._connecting = True
+        try:
+            if not self._ws_task or self._ws_task.done():
+                self._ws_task = asyncio.create_task(self._websocket_handler())
+        finally:
+            self._connecting = False
 
     async def stop(self) -> None:
         """Stop the WebSocket connection."""
         self._stopping = True
+        
+        # Cancel and cleanup ping task
         if self._ping_task and not self._ping_task.done():
             self._ping_task.cancel()
             try:
                 await self._ping_task
             except asyncio.CancelledError:
                 pass
-            self._ping_task = None
+            finally:
+                self._ping_task = None
 
+        # Close websocket first to trigger clean shutdown
+        if self.websocket:
+            try:
+                await self.websocket.close()
+            except Exception as error:
+                _LOGGER.debug("Error closing websocket: %s", error)
+            finally:
+                self.websocket = None
+
+        # Cancel and cleanup websocket task
         if self._ws_task and not self._ws_task.done():
             self._ws_task.cancel()
             try:
                 await self._ws_task
             except asyncio.CancelledError:
                 pass
-            self._ws_task = None
-
-        if self.websocket:
-            await self.websocket.close()
-            self.websocket = None
+            finally:
+                self._ws_task = None
 
     async def _websocket_handler(self) -> None:
         """Handle WebSocket connection with exponential backoff."""
         while not self._stopping:
+            if self.websocket:
+                # Ensure old connection is properly closed
+                try:
+                    await self.websocket.close()
+                except Exception:
+                    pass
+                self.websocket = None
             try:
                 async with websockets.connect(WEBSOCKET_URL) as websocket:
                     self.websocket = websocket
@@ -108,11 +135,17 @@ class WebSocketClient:
                     if self._ping_task is None or self._ping_task.done():
                         self._ping_task = asyncio.create_task(self._ping_handler())
 
-                    # Subscribe to all devices
+                    # Subscribe to all devices in a single message
+                    device_ids_json = json.dumps(self.device_ids)
+                    subscribe_msg = WS_SUBSCRIBE_MESSAGE.format(device_ids=device_ids_json)
+                    await websocket.send(subscribe_msg)
+                    _LOGGER.debug("Subscribed to devices: %s", self.device_ids)
+                    
+                    # Request properties for each device
                     for device_id in self.device_ids:
-                        subscribe_msg = WS_SUBSCRIBE_MESSAGE.format(device_id=device_id)
-                        await websocket.send(subscribe_msg)
-                        _LOGGER.debug("Subscribed to device %s", device_id)
+                        scan_msg = WS_SCAN_MESSAGE.format(device_id=device_id)
+                        await websocket.send(scan_msg)
+                        _LOGGER.debug("Requested properties for device %s", device_id)
 
                     # Process incoming messages
                     while True:
@@ -167,7 +200,14 @@ class WebSocketClient:
                 return
 
             data = json.loads(match.group(1))
-            if not isinstance(data, list) or len(data) != 2 or data[0] != "event":
+            if not isinstance(data, list) or len(data) != 2:
+                return
+                
+            # Log scan command response
+            if data[0] == "event" and "base_info" in data[1]:
+                _LOGGER.debug("Device scan response: %s", json.dumps(data, indent=2))
+                
+            if data[0] != "event":
                 return
 
             event_data = data[1]

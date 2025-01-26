@@ -39,13 +39,15 @@ WEBSOCKET_CONFIG = {
     "PING_MESSAGE": "3",  # Socket.IO ping message
     "MESSAGE_TEMPLATES": {
         "LOGIN": '40/devices,{{"accessToken":"{access_token}"}}',
-        "SUBSCRIBE": '42/devices,["subscribe",["{device_id}"]]',
+        "SUBSCRIBE": '42/devices,["subscribe",{device_ids}]',
+        "SCAN": '42/devices,["cmd",{{"serial_number":"{device_id}","cmd":"scan"}}]',
     },
 }
 
 WEBSOCKET_URL = WEBSOCKET_CONFIG["URL"]
 WS_LOGIN_MESSAGE = WEBSOCKET_CONFIG["MESSAGE_TEMPLATES"]["LOGIN"]
 WS_SUBSCRIBE_MESSAGE = WEBSOCKET_CONFIG["MESSAGE_TEMPLATES"]["SUBSCRIBE"]
+WS_SCAN_MESSAGE = WEBSOCKET_CONFIG["MESSAGE_TEMPLATES"]["SCAN"]
 WS_PING_MESSAGE = WEBSOCKET_CONFIG["PING_MESSAGE"]
 
 # WebSocket Event Types
