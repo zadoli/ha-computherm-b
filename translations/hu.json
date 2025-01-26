@@ -29,17 +29,7 @@
         },
         "climate": {
             "computherm_b": {
-                "state_attributes": {
-                    "hvac_action": {
-                        "heating": "Fűtés",
-                        "idle": "Készenlét",
-                        "off": "Kikapcsolva"
-                    },
-                    "hvac_mode": {
-                        "heat": "Fűtés",
-                        "off": "Kikapcsolva"
-                    }
-                }
+                "name": "Termosztát"
             }
         }
     }

@@ -20,14 +20,14 @@
         }
     },
     "entity": {
+        "sensor": {
+            "computherm_b": {
+                "name": "Temperature"
+            }
+        },
         "climate": {
-            "computherm_thermostat": {
-                "state_attributes": {
-                    "preset_mode": {
-                        "home": "Home",
-                        "away": "Away"
-                    }
-                }
+            "computherm_b": {
+                "name": "Thermostat"
             }
         }
     }

@@ -36,7 +36,7 @@ async def async_setup_entry(
     
     entities = []
     for serial, device_info in coordinator.devices.items():
-        entities.append(ComputhermTemperatureSensor(coordinator, serial))
+        entities.append(ComputhermTemperatureSensor(hass, coordinator, serial))
     
     async_add_entities(entities, True)
 
@@ -44,12 +44,13 @@ class ComputhermTemperatureSensor(CoordinatorEntity, SensorEntity):
     """Representation of a Computherm Temperature Sensor."""
 
     _attr_has_entity_name = True
-    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_translation_key = DOMAIN
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(
         self,
+        hass: HomeAssistant,
         coordinator: ComputhermDataUpdateCoordinator,
         serial: str,
     ) -> None:
@@ -59,6 +60,9 @@ class ComputhermTemperatureSensor(CoordinatorEntity, SensorEntity):
         
         # Set unique ID and device info
         self._attr_unique_id = f"{DOMAIN}_{serial}_temperature"
+        self._attr_name = "temperature"
+
+        self._attr_temperature_unit = hass.config.units.temperature_unit
         
         # Log entity ID and attributes
         _LOGGER.debug(
@@ -69,6 +73,9 @@ class ComputhermTemperatureSensor(CoordinatorEntity, SensorEntity):
         )
         device_info = {
             "identifiers": {(DOMAIN, serial)},
+            "name": f"Computherm {serial}",
+            "manufacturer": "Computherm",
+            "model": coordinator.devices[self.device_id].get("type", "B Series Thermostat"),
         }
         
         # Log device info
