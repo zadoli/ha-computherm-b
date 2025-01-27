@@ -40,7 +40,7 @@ WEBSOCKET_CONFIG = {
     "MESSAGE_TEMPLATES": {
         "LOGIN": '40/devices,{{"accessToken":"{access_token}"}}',
         "SUBSCRIBE": '42/devices,["subscribe",{device_ids}]',
-        "SCAN": '42/devices,["cmd",{{"serial_number":"{device_id}","cmd":"scan"}}]',
+        "SCAN": '42/devices,["cmd","{{\\"serial_number\\":\\"{device_id}\\",\\"cmd\\":\\"scan\\"}}"]',
     },
 }
 
