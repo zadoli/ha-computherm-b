@@ -202,6 +202,13 @@ class WebSocketClient:
             data = json.loads(match.group(1))
             if not isinstance(data, list) or len(data) != 2:
                 return
+
+            # Handle error responses
+            if data[0] == "exception":
+                error_data = data[1]
+                _LOGGER.error("WebSocket error response: %s (Code: %s)", 
+                                error_data.get("message"), error_data.get("code"))
+                return
                 
             # Log scan command response
             if data[0] == "event" and "base_info" in data[1]:
