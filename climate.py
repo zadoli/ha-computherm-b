@@ -34,6 +34,7 @@ from .const import (
     ATTR_TARGET_TEMPERATURE,
     ATTR_OPERATION_MODE,
     ATTR_ONLINE,
+    ATTR_HUMIDITY,
 )
 from .coordinator import ComputhermDataUpdateCoordinator
 
@@ -201,6 +202,13 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     def available(self) -> bool:
         """Return if entity is available."""
         return self.device_data.get(ATTR_ONLINE, False)
+
+    @property
+    def current_humidity(self) -> int | None:
+        """Return the current humidity."""
+        if self.device_data.get(ATTR_HUMIDITY) is not None:
+            return round(float(self.device_data[ATTR_HUMIDITY]))
+        return None
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
         """Set new target temperature."""
