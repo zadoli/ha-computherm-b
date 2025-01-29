@@ -11,7 +11,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -19,6 +19,8 @@ from .const import (
     DOMAIN,
     COORDINATOR,
     ATTR_TEMPERATURE,
+    ATTR_DEVICE_TYPE,
+    ATTR_FW_VERSION,
 )
 from .coordinator import ComputhermDataUpdateCoordinator
 
@@ -32,43 +34,52 @@ async def async_setup_entry(
     """Set up the Computherm temperature sensors."""
     coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
     
+    _LOGGER.info("Setting up Computherm sensor platform")
+    
     # Wait for devices to be fetched
     await coordinator.async_config_entry_first_refresh()
     
-    entities = []
+    existing_entities = set()  # Track entities we've already added
     
-    # Create a function to add entities when base_info is received
-    async def add_entities_for_device(device_id: str) -> None:
+    @callback
+    def _async_add_entities_for_device(device_id: str) -> None:
         """Create and add entities for a device that has received base_info."""
-        if device_id not in coordinator.devices_with_base_info or not coordinator.devices_with_base_info[device_id]:
+        if device_id in existing_entities:            
             return
+            
+        if device_id not in coordinator.devices_with_base_info:
+            _LOGGER.debug("Device %s has no base_info yet", device_id)
+            return
+            
+        if not coordinator.devices_with_base_info[device_id]:
+            _LOGGER.debug("Device %s has empty base_info", device_id)
+            return
+            
+        _LOGGER.info("Creating sensor entity for device %s", device_id)
         entity = ComputhermTemperatureSensor(hass, coordinator, device_id)
         async_add_entities([entity], True)
+        existing_entities.add(device_id)
+        _LOGGER.info("Sensor entity created for device %s", device_id)
     
     # Add entities for devices that already have base_info
     for serial in coordinator.devices:
+        _LOGGER.debug("Checking device %s for base_info", serial)
         if serial in coordinator.devices_with_base_info and coordinator.devices_with_base_info[serial]:
-            entities.append(ComputhermTemperatureSensor(hass, coordinator, serial))
+            _LOGGER.info("Found existing base_info for device %s", serial)
+            _async_add_entities_for_device(serial)
     
-    if entities:
-        async_add_entities(entities, True)
-    
-    # Set up listener for future base_info updates
-    async def handle_coordinator_update() -> None:
+    @callback
+    def async_handle_coordinator_update() -> None:
         """Handle updated data from the coordinator."""
-        tasks = []
         for device_id in coordinator.devices:
-            if (device_id in coordinator.devices_with_base_info and 
-                coordinator.devices_with_base_info[device_id] and
-                not any(device_id == entity.device_id for entity in entities)):
-                tasks.append(add_entities_for_device(device_id))
-        if tasks:
-            await asyncio.gather(*tasks)
+            if device_id in coordinator.devices_with_base_info and coordinator.devices_with_base_info[device_id]:
+                _async_add_entities_for_device(device_id)
     
     # Register listener
     config_entry.async_on_unload(
-        coordinator.async_add_listener(handle_coordinator_update)
+        coordinator.async_add_listener(async_handle_coordinator_update)
     )
+    _LOGGER.info("Sensor platform setup completed")
 
 class ComputhermTemperatureSensor(CoordinatorEntity, SensorEntity):
     """Representation of a Computherm Temperature Sensor."""
@@ -94,21 +105,24 @@ class ComputhermTemperatureSensor(CoordinatorEntity, SensorEntity):
         self._attr_name = "temperature"
 
         # Log entity ID and attributes
-        _LOGGER.debug(
-            "Initializing temperature sensor - ID: %s, Device ID: %s, Device Data: %s",
+        _LOGGER.info(
+            "Initializing temperature sensor - ID: %s, Device ID: %s",
             self._attr_unique_id,
-            self.device_id,
-            self.device_data
+            self.device_id
         )
+        
         device_info = {
             "identifiers": {(DOMAIN, serial)},
+            "serial_number": serial,
             "name": f"Computherm {serial}",
             "manufacturer": "Computherm",
-            "model": coordinator.devices[self.device_id].get("type", "B Series Thermostat"),
+            "model": self.coordinator.devices[self.device_id].get(ATTR_DEVICE_TYPE, "") or "B Series Thermostat",
+            "sw_version": self.coordinator.devices[self.device_id].get(ATTR_FW_VERSION),
+            "hw_version": self.coordinator.devices[self.device_id].get("type"),
         }
         
         # Log device info
-        _LOGGER.debug(
+        _LOGGER.info(
             "Temperature sensor device info - Device: %s, Info: %s",
             serial,
             device_info

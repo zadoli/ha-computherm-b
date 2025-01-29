@@ -111,10 +111,11 @@ class WebSocketClient:
                     pass
                 self.websocket = None
             try:
+                _LOGGER.info("Attempting to establish WebSocket connection...")
                 async with websockets.connect(WEBSOCKET_URL) as websocket:
                     self.websocket = websocket
                     self._reconnect_interval = 5  # Reset on successful connection
-                    _LOGGER.debug("WebSocket connected")
+                    _LOGGER.info("WebSocket connected successfully")
 
                     # Handle initial connection message
                     message = await websocket.recv()
@@ -124,12 +125,13 @@ class WebSocketClient:
                     connect_data = json.loads(message[1:])
                     self._sid = connect_data.get("sid")
                     self._ping_interval = connect_data.get("pingInterval", 25000) / 1000
+                    _LOGGER.info("WebSocket initialized with SID: %s", self._sid)
                     
                     # Send login message
                     login_message = WS_LOGIN_MESSAGE.format(access_token=self.auth_token)
                     await websocket.send(login_message)
                     response = await websocket.recv()
-                    _LOGGER.debug("Login response: %s", response)
+                    _LOGGER.info("Login response received: %s", response)
 
                     # Start ping task
                     if self._ping_task is None or self._ping_task.done():
@@ -139,13 +141,13 @@ class WebSocketClient:
                     device_ids_json = json.dumps(self.device_ids)
                     subscribe_msg = WS_SUBSCRIBE_MESSAGE.format(device_ids=device_ids_json)
                     await websocket.send(subscribe_msg)
-                    _LOGGER.debug("Subscribed to devices: %s", self.device_ids)
+                    _LOGGER.info("Subscribed to devices: %s", self.device_ids)
                     
                     # Request properties for each device
                     for device_id in self.device_ids:
                         scan_msg = WS_SCAN_MESSAGE.format(device_id=device_id)
                         await websocket.send(scan_msg)
-                        _LOGGER.debug("Requested properties for device %s", device_id)
+                        _LOGGER.info("Sent scan request for device %s", device_id)
 
                     # Process incoming messages
                     while True:
@@ -229,10 +231,12 @@ class WebSocketClient:
             # Extract the JSON part of the message
             match = re.match(r'42/devices,(.+)', message)
             if not match:
+                _LOGGER.warning("Failed to match message format: %s", message)
                 return
 
             data = json.loads(match.group(1))
             if not isinstance(data, list) or len(data) != 2:
+                _LOGGER.warning("Invalid message structure: %s", data)
                 return
 
             # Handle error responses
@@ -243,6 +247,7 @@ class WebSocketClient:
                 return
                 
             if data[0] != "event":
+                _LOGGER.debug("Ignoring non-event message: %s", data[0])
                 return
 
             event_data = data[1]
@@ -251,17 +256,24 @@ class WebSocketClient:
 
             # Handle base_info case
             if "base_info" in event_data:
+                _LOGGER.info("Received base_info event: %s", event_data)
                 device_id = event_data["base_info"].get("serial_number")
-                if not device_id or device_id not in self.device_ids:
+                if not device_id:
+                    _LOGGER.warning("base_info missing serial_number: %s", event_data)
+                    return
+                if device_id not in self.device_ids:
+                    _LOGGER.warning("Received base_info for unknown device: %s", device_id)
                     return
                 device_update = {
                     ATTR_ONLINE: event_data.get(ATTR_ONLINE, False),
                     "base_info": event_data["base_info"]
                 }
+                _LOGGER.info("Updated device %s with base_info: %s", device_id, device_update)
             else:
                 # Handle regular updates
                 device_id = event_data.get("serial_number")
                 if not device_id or device_id not in self.device_ids:
+                    _LOGGER.warning("Invalid or unknown device ID in update: %s", device_id)
                     return
                 device_update = {
                     ATTR_ONLINE: event_data.get(ATTR_ONLINE, False)
@@ -285,7 +297,7 @@ class WebSocketClient:
 
             # Notify callback with the update
             self.data_callback({device_id: device_update})
-            _LOGGER.debug(
+            _LOGGER.info(
                 "Device %s %s: %s",
                 device_id,
                 "base_info and state update" if "base_info" in event_data else "update",

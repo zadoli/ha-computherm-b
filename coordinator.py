@@ -56,19 +56,20 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.device_data = {}
         self.devices_with_base_info = {}  # Track devices that have received base_info
         self._ws_client: WebSocketClient | None = None
+        _LOGGER.info("Initialized ComputhermDataUpdateCoordinator")
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API endpoint."""
         try:
             if not self.auth_token:
-                _LOGGER.debug("No auth token, authenticating...")
+                _LOGGER.info("No auth token, starting initial setup...")
                 await self._authenticate()
                 await self._fetch_devices()
                 await self._setup_websocket()
-                _LOGGER.debug("Initial setup completed successfully")
+                _LOGGER.info("Initial setup completed successfully")
             elif self._ws_client and not self._ws_client.websocket:
                 # Only attempt reconnect if we have a client but lost connection
-                _LOGGER.debug("WebSocket disconnected, attempting reconnect...")
+                _LOGGER.info("WebSocket disconnected, attempting reconnect...")
                 await self._ws_client.start()
 
             return self.device_data
@@ -93,6 +94,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _authenticate(self) -> None:
         """Authenticate with the API."""
         try:
+            _LOGGER.info("Attempting authentication...")
             async with self.session.post(
                 f"{API_BASE_URL}{API_LOGIN_ENDPOINT}",
                 json={
@@ -107,7 +109,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.auth_token = result.get("token") or result.get("access_token")
                 if not self.auth_token:
                     raise ConfigEntryAuthFailed("No authentication token received")
-                _LOGGER.debug("Authentication successful")
+                _LOGGER.info("Authentication successful")
         except ClientResponseError as error:
             if error.status == 401:
                 raise ConfigEntryAuthFailed("Invalid credentials") from error
@@ -120,6 +122,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _fetch_devices(self) -> None:
         """Fetch list of devices for the user."""
         try:
+            _LOGGER.info("Fetching devices...")
             async with self.session.get(
                 f"{API_BASE_URL}{API_DEVICES_ENDPOINT}",
                 headers={"Authorization": f"Bearer {self.auth_token}"},
@@ -146,6 +149,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             ATTR_ACCESS_STATUS: device.get(ATTR_ACCESS_STATUS),
                             "access_rules": device.get("access_rules", {})
                         }
+                        _LOGGER.info("Found device: %s (Type: %s)", serial, device.get(ATTR_DEVICE_TYPE, "unknown"))
                     else:
                         _LOGGER.warning("Device without serial number found: %s", device)
                 
@@ -154,7 +158,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     await self.async_stop()
                     self.device_data = {}  # Clear any existing device data
                 else:
-                    _LOGGER.debug("Found devices: %s", list(self.devices.keys()))
+                    _LOGGER.info("Successfully fetched %d devices: %s", len(self.devices), list(self.devices.keys()))
                     
         except ClientResponseError as error:
             if error.status == 401:
@@ -174,13 +178,14 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     _LOGGER.warning("No devices available, skipping WebSocket setup")
                     return
 
+                _LOGGER.info("Setting up WebSocket connection for devices: %s", list(self.devices.keys()))
                 self._ws_client = WebSocketClient(
                     auth_token=self.auth_token,
                     device_ids=list(self.devices.keys()),
                     data_callback=self._handle_ws_update,
                 )
                 await self._ws_client.start()
-                _LOGGER.debug("WebSocket connection established")
+                _LOGGER.info("WebSocket connection established successfully")
         except Exception as error:
             _LOGGER.error("Failed to setup WebSocket connection: %s", error)
             self._ws_client = None
@@ -193,6 +198,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 if device_id in self.devices:
                     # Initialize device_data if not exists
                     if device_id not in self.device_data:
+                        _LOGGER.info("Initializing data structure for device %s", device_id)
                         self.device_data[device_id] = {
                             **self.devices[device_id],
                             ATTR_TEMPERATURE: None,
@@ -206,24 +212,34 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     
                     # Check if this update contains base_info
                     if "base_info" in device_data:
+                        _LOGGER.info("Received base_info for device %s: %s", device_id, device_data["base_info"])
                         self.devices_with_base_info[device_id] = device_data["base_info"]
-                        _LOGGER.debug("Received base_info for device %s: %s", device_id, device_data["base_info"])
+                        # Update device data with base_info
+                        self.device_data[device_id]["base_info"] = device_data["base_info"]
+                        # Force a coordinator update to trigger entity creation
+                        self.async_set_updated_data(self.device_data)
+                    
+                    # Update device data
                     self.device_data[device_id].update(device_data)
-                    _LOGGER.debug(
-                        "Updated device %s - Temp: %s, Target: %s, Mode: %s, Heating: %s",
+                    _LOGGER.info(
+                        "Updated device %s - Online: %s, Temp: %s, Target: %s, Mode: %s, Heating: %s",
                         device_id,
+                        device_data.get(ATTR_ONLINE),
                         device_data.get(ATTR_TEMPERATURE),
                         device_data.get(ATTR_TARGET_TEMPERATURE),
                         device_data.get(ATTR_OPERATION_MODE),
                         device_data.get("is_heating")
                     )
+                    
+                    # Notify HA of the update
+                    self.async_set_updated_data(self.device_data)
             
-            self.async_set_updated_data(self.device_data)
         except Exception as error:
             _LOGGER.error("Error handling WebSocket update: %s", error)
 
     async def async_stop(self) -> None:
         """Stop the coordinator."""
+        _LOGGER.info("Stopping coordinator...")
         if self._ws_client:
             await self._ws_client.stop()
             self._ws_client = None
@@ -231,3 +247,4 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.devices = {}
         self.device_data = {}
         self.auth_token = None
+        _LOGGER.info("Coordinator stopped")

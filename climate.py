@@ -16,7 +16,7 @@ from homeassistant.const import (
     ATTR_TEMPERATURE,
     UnitOfTemperature,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -53,43 +53,53 @@ async def async_setup_entry(
     """Set up the Computherm climate platform."""
     coordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
     
+    _LOGGER.info("Setting up Computherm climate platform")
+    
     # Wait for devices to be fetched
     await coordinator.async_config_entry_first_refresh()
     
     entities = []
+    existing_entities = set()  # Track entities we've already added
     
-    # Create a function to add entities when base_info is received
-    async def add_entities_for_device(device_id: str) -> None:
+    @callback
+    def _async_add_entities_for_device(device_id: str) -> None:
         """Create and add entities for a device that has received base_info."""
-        if device_id not in coordinator.devices_with_base_info or not coordinator.devices_with_base_info[device_id]:
+        if device_id in existing_entities:            
             return
+            
+        if device_id not in coordinator.devices_with_base_info:
+            _LOGGER.debug("Device %s has no base_info yet", device_id)
+            return
+            
+        if not coordinator.devices_with_base_info[device_id]:
+            _LOGGER.debug("Device %s has empty base_info", device_id)
+            return
+            
+        _LOGGER.info("Creating climate entity for device %s", device_id)
         entity = ComputhermThermostat(hass, coordinator, device_id)
         async_add_entities([entity], True)
+        existing_entities.add(device_id)
+        _LOGGER.info("Climate entity created for device %s", device_id)
     
     # Add entities for devices that already have base_info
     for serial in coordinator.devices:
+        _LOGGER.debug("Checking device %s for base_info", serial)
         if serial in coordinator.devices_with_base_info and coordinator.devices_with_base_info[serial]:
-            entities.append(ComputhermThermostat(hass, coordinator, serial))
+            _LOGGER.info("Found existing base_info for device %s", serial)
+            _async_add_entities_for_device(serial)
     
-    if entities:
-        async_add_entities(entities, True)
-    
-    # Set up listener for future base_info updates
-    async def handle_coordinator_update() -> None:
+    @callback
+    def async_handle_coordinator_update() -> None:
         """Handle updated data from the coordinator."""
-        tasks = []
         for device_id in coordinator.devices:
-            if (device_id in coordinator.devices_with_base_info and 
-                coordinator.devices_with_base_info[device_id] and
-                not any(device_id == entity.device_id for entity in entities)):
-                tasks.append(add_entities_for_device(device_id))
-        if tasks:
-            await asyncio.gather(*tasks)
+            if device_id in coordinator.devices_with_base_info and coordinator.devices_with_base_info[device_id]:
+                _async_add_entities_for_device(device_id)
     
     # Register listener
     config_entry.async_on_unload(
-        coordinator.async_add_listener(handle_coordinator_update)
+        coordinator.async_add_listener(async_handle_coordinator_update)
     )
+    _LOGGER.info("Climate platform setup completed")
 
 class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     """Representation of a Computherm Thermostat."""
@@ -118,12 +128,12 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         self._attr_name = "thermostat"
 
         # Log entity ID and attributes
-        _LOGGER.debug(
-            "Initializing climate entity - ID: %s, Device ID: %s, Device Data: %s",
+        _LOGGER.info(
+            "Initializing climate entity - ID: %s, Device ID: %s",
             self._attr_unique_id,
-            self.device_id,
-            self.device_data
+            self.device_id
         )
+        
         device_info = {
             "identifiers": {(DOMAIN, serial)},
             "serial_number": serial,
@@ -135,7 +145,7 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         }
         
         # Log device info
-        _LOGGER.debug(
+        _LOGGER.info(
             "Climate entity device info - Device: %s, Info: %s",
             serial,
             device_info
@@ -158,8 +168,10 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     @property
     def target_temperature(self) -> float | None:
         """Return the target temperature."""
-        if self.device_data.get(ATTR_TARGET_TEMPERATURE) is not None:
-            return float(self.device_data[ATTR_TARGET_TEMPERATURE])
+        temp = self.device_data.get(ATTR_TARGET_TEMPERATURE)
+        if temp is not None:
+            _LOGGER.debug("Device %s target temperature: %.1f°C", self.device_id, temp)
+            return float(temp)
         return None
 
     @property
@@ -176,12 +188,14 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     def hvac_action(self) -> HVACAction | None:
         """Return the current running hvac operation."""
         if not self.device_data.get(ATTR_ONLINE, False):
+            _LOGGER.debug("Device %s is offline, setting action to OFF", self.device_id)
             return HVACAction.OFF
         if self.hvac_mode == HVACMode.OFF:
+            _LOGGER.debug("Device %s mode is OFF, setting action to OFF", self.device_id)
             return HVACAction.OFF
-        if self.device_data.get("is_heating", False):
-            return HVACAction.HEATING
-        return HVACAction.IDLE
+        is_heating = self.device_data.get("is_heating", False)
+        action = HVACAction.HEATING if is_heating else HVACAction.IDLE
+        return action
 
     @property
     def available(self) -> bool:
@@ -195,14 +209,19 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
             return
 
         try:
+            _LOGGER.info(
+                "Setting temperature to %.1f°C for device %s",
+                temperature,
+                self.device_id
+            )
             async with self.coordinator.session.post(
                 f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(serial_number=self.device_id)}",
                 headers={"Authorization": f"Bearer {self.coordinator.auth_token}"},
                 json={"target_temperature": temperature},
             ) as response:
                 response.raise_for_status()
-                _LOGGER.debug(
-                    "Set temperature to %.1f°C for device %s",
+                _LOGGER.info(
+                    "Successfully set temperature to %.1f°C for device %s",
                     temperature,
                     self.device_id
                 )
@@ -221,14 +240,19 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         operation_mode = "heat" if hvac_mode == HVACMode.HEAT else "off"
         
         try:
+            _LOGGER.info(
+                "Setting operation mode to %s for device %s",
+                operation_mode,
+                self.device_id
+            )
             async with self.coordinator.session.post(
                 f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(serial_number=self.device_id)}",
                 headers={"Authorization": f"Bearer {self.coordinator.auth_token}"},
                 json={"operation_mode": operation_mode},
             ) as response:
                 response.raise_for_status()
-                _LOGGER.debug(
-                    "Set operation mode to %s for device %s",
+                _LOGGER.info(
+                    "Successfully set operation mode to %s for device %s",
                     operation_mode,
                     self.device_id
                 )
