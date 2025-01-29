@@ -25,9 +25,10 @@ from .const import (
     WS_PING_MESSAGE,
     WS_TEMPERATURE_EVENT,
     WS_TARGET_TEMPERATURE_EVENT,
-    WS_RELAY_EVENT,
+    WS_HUMIDITY_EVENT,
     WS_RELAY_STATE_ON,
     ATTR_TEMPERATURE,
+    ATTR_HUMIDITY,    
     ATTR_TARGET_TEMPERATURE,
     ATTR_OPERATION_MODE,
     ATTR_ONLINE,
@@ -197,17 +198,26 @@ class WebSocketClient:
                 return
 
     def _process_readings(self, readings: list, device_id: str, device_update: dict) -> None:
-        """Process temperature readings and update device state."""
+        """Process temperature and humidity readings and update device state."""
         for reading in readings:
+            if "reading" not in reading:
+                continue
+                
             if reading["type"] == WS_TEMPERATURE_EVENT:
-                if "reading" in reading:
-                    device_update[ATTR_TEMPERATURE] = reading["reading"]
-                    _LOGGER.debug(
-                        "Device %s temperature update: %.1f°C",
-                        device_id,
-                        reading["reading"]
-                    )
-            elif reading["type"] == WS_TARGET_TEMPERATURE_EVENT and "reading" in reading:
+                device_update[ATTR_TEMPERATURE] = reading["reading"]
+                _LOGGER.debug(
+                    "Device %s temperature update: %.1f°C",
+                    device_id,
+                    reading["reading"]
+                )
+            elif reading["type"] == WS_HUMIDITY_EVENT:
+                device_update[ATTR_HUMIDITY] = reading["reading"]
+                _LOGGER.debug(
+                    "Device %s humidity update: %.1f%%",
+                    device_id,
+                    reading["reading"]
+                )
+            elif reading["type"] == WS_TARGET_TEMPERATURE_EVENT:
                 device_update[ATTR_TARGET_TEMPERATURE] = reading["reading"]
                 _LOGGER.debug(
                     "Device %s target temperature update: %.1f°C",

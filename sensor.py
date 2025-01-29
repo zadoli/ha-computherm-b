@@ -10,7 +10,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import UnitOfTemperature, PERCENTAGE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -19,6 +19,7 @@ from .const import (
     DOMAIN,
     COORDINATOR,
     ATTR_TEMPERATURE,
+    ATTR_HUMIDITY,
     ATTR_DEVICE_TYPE,
     ATTR_FW_VERSION,
 )
@@ -39,14 +40,12 @@ async def async_setup_entry(
     # Wait for devices to be fetched
     await coordinator.async_config_entry_first_refresh()
     
-    existing_entities = set()  # Track entities we've already added
+    existing_temperature_entities = set()  # Track temperature entities we've already added
+    existing_humidity_entities = set()  # Track humidity entities we've already added
     
     @callback
     def _async_add_entities_for_device(device_id: str) -> None:
         """Create and add entities for a device that has received base_info."""
-        if device_id in existing_entities:            
-            return
-            
         if device_id not in coordinator.devices_with_base_info:
             _LOGGER.debug("Device %s has no base_info yet", device_id)
             return
@@ -54,12 +53,26 @@ async def async_setup_entry(
         if not coordinator.devices_with_base_info[device_id]:
             _LOGGER.debug("Device %s has empty base_info", device_id)
             return
+
+        entities_to_add = []
             
-        _LOGGER.info("Creating sensor entity for device %s", device_id)
-        entity = ComputhermTemperatureSensor(hass, coordinator, device_id)
-        async_add_entities([entity], True)
-        existing_entities.add(device_id)
-        _LOGGER.info("Sensor entity created for device %s", device_id)
+        # Add temperature sensor if not already added
+        if device_id not in existing_temperature_entities:
+            _LOGGER.info("Creating temperature sensor entity for device %s", device_id)
+            temp_entity = ComputhermTemperatureSensor(hass, coordinator, device_id)
+            entities_to_add.append(temp_entity)
+            existing_temperature_entities.add(device_id)
+            
+        # Add humidity sensor if not already added and device has humidity readings
+        if device_id not in existing_humidity_entities and ATTR_HUMIDITY in coordinator.device_data.get(device_id, {}):
+            _LOGGER.info("Creating humidity sensor entity for device %s", device_id)
+            humidity_entity = ComputhermHumiditySensor(hass, coordinator, device_id)
+            entities_to_add.append(humidity_entity)
+            existing_humidity_entities.add(device_id)
+            
+        if entities_to_add:
+            async_add_entities(entities_to_add, True)
+            _LOGGER.info("Sensor entities created for device %s", device_id)
     
     # Add entities for devices that already have base_info
     for serial in coordinator.devices:
@@ -81,14 +94,12 @@ async def async_setup_entry(
     )
     _LOGGER.info("Sensor platform setup completed")
 
-class ComputhermTemperatureSensor(CoordinatorEntity, SensorEntity):
+class ComputhermSensorBase(CoordinatorEntity, SensorEntity):
     """Representation of a Computherm Temperature Sensor."""
 
     _attr_has_entity_name = True
     _attr_translation_key = DOMAIN
-    _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
 
     def __init__(
         self,
@@ -100,17 +111,6 @@ class ComputhermTemperatureSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self.device_id = serial
         
-        # Set unique ID and device info
-        self._attr_unique_id = f"{DOMAIN}_{serial}_temperature"
-        self._attr_name = "temperature"
-
-        # Log entity ID and attributes
-        _LOGGER.info(
-            "Initializing temperature sensor - ID: %s, Device ID: %s",
-            self._attr_unique_id,
-            self.device_id
-        )
-        
         device_info = {
             "identifiers": {(DOMAIN, serial)},
             "serial_number": serial,
@@ -121,13 +121,6 @@ class ComputhermTemperatureSensor(CoordinatorEntity, SensorEntity):
             "hw_version": self.coordinator.devices[self.device_id].get("type"),
         }
         
-        # Log device info
-        _LOGGER.info(
-            "Temperature sensor device info - Device: %s, Info: %s",
-            serial,
-            device_info
-        )
-        
         self._attr_device_info = device_info
 
     @property
@@ -136,13 +129,66 @@ class ComputhermTemperatureSensor(CoordinatorEntity, SensorEntity):
         return self.coordinator.device_data.get(self.device_id, {})
 
     @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return self.device_data.get("online", False)
+
+
+class ComputhermTemperatureSensor(ComputhermSensorBase):
+    """Representation of a Computherm Temperature Sensor."""
+
+    _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        coordinator: ComputhermDataUpdateCoordinator,
+        serial: str,
+    ) -> None:
+        """Initialize the temperature sensor."""
+        super().__init__(hass, coordinator, serial)
+        self._attr_unique_id = f"{DOMAIN}_{serial}_temperature"
+        self._attr_name = "temperature"
+        _LOGGER.info(
+            "Initializing temperature sensor - ID: %s, Device ID: %s",
+            self._attr_unique_id,
+            self.device_id
+        )
+
+    @property
     def native_value(self) -> float | None:
         """Return the current temperature."""
         if self.device_data.get(ATTR_TEMPERATURE) is not None:
             return float(self.device_data[ATTR_TEMPERATURE])
         return None
 
+
+class ComputhermHumiditySensor(ComputhermSensorBase):
+    """Representation of a Computherm Humidity Sensor."""
+
+    _attr_device_class = SensorDeviceClass.HUMIDITY
+    _attr_native_unit_of_measurement = PERCENTAGE
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        coordinator: ComputhermDataUpdateCoordinator,
+        serial: str,
+    ) -> None:
+        """Initialize the humidity sensor."""
+        super().__init__(hass, coordinator, serial)
+        self._attr_unique_id = f"{DOMAIN}_{serial}_humidity"
+        self._attr_name = "humidity"
+        _LOGGER.info(
+            "Initializing humidity sensor - ID: %s, Device ID: %s",
+            self._attr_unique_id,
+            self.device_id
+        )
+
     @property
-    def available(self) -> bool:
-        """Return if entity is available."""
-        return self.device_data.get("online", False)
+    def native_value(self) -> float | None:
+        """Return the current humidity."""
+        if self.device_data.get(ATTR_HUMIDITY) is not None:
+            return float(self.device_data[ATTR_HUMIDITY])
+        return None
