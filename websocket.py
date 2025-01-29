@@ -5,12 +5,18 @@ import asyncio
 import json
 import logging
 import re
+import ssl
 from datetime import datetime, timedelta
 from typing import Any, Callable
 
 import websockets
 from websockets.exceptions import ConnectionClosed
 
+# Create SSL context at module level, outside of any async context
+SSL_CONTEXT = ssl.create_default_context()
+SSL_CONTEXT.load_default_certs()
+
+# Local imports
 from .const import (
     WEBSOCKET_URL,
     WS_LOGIN_MESSAGE,
@@ -112,7 +118,7 @@ class WebSocketClient:
                 self.websocket = None
             try:
                 _LOGGER.info("Attempting to establish WebSocket connection...")
-                async with websockets.connect(WEBSOCKET_URL) as websocket:
+                async with websockets.connect(WEBSOCKET_URL, ssl=SSL_CONTEXT) as websocket:
                     self.websocket = websocket
                     self._reconnect_interval = 5  # Reset on successful connection
                     _LOGGER.info("WebSocket connected successfully")
@@ -297,7 +303,7 @@ class WebSocketClient:
 
             # Notify callback with the update
             self.data_callback({device_id: device_update})
-            _LOGGER.info(
+            _LOGGER.debug(
                 "Device %s %s: %s",
                 device_id,
                 "base_info and state update" if "base_info" in event_data else "update",
