@@ -188,6 +188,38 @@ class WebSocketClient:
                 _LOGGER.error("Error in ping handler: %s", error)
                 return
 
+    def _process_readings(self, readings: list, device_id: str, device_update: dict) -> None:
+        """Process temperature readings and update device state."""
+        for reading in readings:
+            if reading["type"] == WS_TEMPERATURE_EVENT:
+                if "reading" in reading:
+                    device_update[ATTR_TEMPERATURE] = reading["reading"]
+                    _LOGGER.debug(
+                        "Device %s temperature update: %.1f°C",
+                        device_id,
+                        reading["reading"]
+                    )
+            elif reading["type"] == WS_TARGET_TEMPERATURE_EVENT and "reading" in reading:
+                device_update[ATTR_TARGET_TEMPERATURE] = reading["reading"]
+                _LOGGER.debug(
+                    "Device %s target temperature update: %.1f°C",
+                    device_id,
+                    reading["reading"]
+                )
+
+    def _process_relays(self, relays: list, device_id: str, device_update: dict) -> None:
+        """Process relay states and update device state."""
+        for relay in relays:
+            if "relay_state" in relay:
+                is_heating = relay["relay_state"] == WS_RELAY_STATE_ON
+                device_update["is_heating"] = is_heating
+                device_update[ATTR_OPERATION_MODE] = "heat" if is_heating else "off"
+                _LOGGER.debug(
+                    "Device %s relay state update: %s",
+                    device_id,
+                    "ON" if is_heating else "OFF"
+                )
+
     async def _handle_message(self, message: str) -> None:
         """Handle incoming WebSocket message."""
         if not message.startswith("42/devices"):
@@ -210,54 +242,37 @@ class WebSocketClient:
                                 error_data.get("message"), error_data.get("code"))
                 return
                 
-            # Log scan command response
-            if data[0] == "event" and "base_info" in data[1]:
-                _LOGGER.debug("Device scan response: %s", json.dumps(data, indent=2))
-                
             if data[0] != "event":
                 return
 
             event_data = data[1]
-            device_id = event_data.get("serial_number")
-            if not device_id or device_id not in self.device_ids:
-                return
+            device_id = None
+            device_update = {}
 
-            device_update = {
-                ATTR_ONLINE: event_data.get(ATTR_ONLINE, False)
-            }
+            # Handle base_info case
+            if "base_info" in event_data:
+                device_id = event_data["base_info"].get("serial_number")
+                if not device_id or device_id not in self.device_ids:
+                    return
+                device_update = {
+                    ATTR_ONLINE: event_data.get(ATTR_ONLINE, False),
+                    "base_info": event_data["base_info"]
+                }
+            else:
+                # Handle regular updates
+                device_id = event_data.get("serial_number")
+                if not device_id or device_id not in self.device_ids:
+                    return
+                device_update = {
+                    ATTR_ONLINE: event_data.get(ATTR_ONLINE, False)
+                }
 
-            # Handle temperature readings
+            # Process readings and relays
             if "readings" in event_data:
-                for reading in event_data["readings"]:
-                    if reading["type"] == WS_TEMPERATURE_EVENT:
-                        if "reading" in reading:
-                            device_update[ATTR_TEMPERATURE] = reading["reading"]
-                            _LOGGER.debug(
-                                "Device %s temperature update: %.1f°C",
-                                device_id,
-                                reading["reading"]
-                            )
-                    elif reading["type"] == WS_TARGET_TEMPERATURE_EVENT and "reading" in reading:
-                        device_update[ATTR_TARGET_TEMPERATURE] = reading["reading"]
-                        _LOGGER.debug(
-                            "Device %s target temperature update: %.1f°C",
-                            device_id,
-                            reading["reading"]
-                        )
+                self._process_readings(event_data["readings"], device_id, device_update)
 
-            # Handle relay state
             if "relays" in event_data:
-                for relay in event_data["relays"]:
-                    if "relay_state" in relay:
-                        is_heating = relay["relay_state"] == WS_RELAY_STATE_ON
-                        device_update["is_heating"] = is_heating
-                        # Set operation mode based on relay state
-                        device_update[ATTR_OPERATION_MODE] = "heat" if is_heating else "off"
-                        _LOGGER.debug(
-                            "Device %s relay state update: %s",
-                            device_id,
-                            "ON" if is_heating else "OFF"
-                        )
+                self._process_relays(event_data["relays"], device_id, device_update)
 
             # Handle operation mode if explicitly provided
             if "operation_mode" in event_data:
@@ -270,7 +285,12 @@ class WebSocketClient:
 
             # Notify callback with the update
             self.data_callback({device_id: device_update})
-            _LOGGER.debug("Device %s update: %s", device_id, device_update)
+            _LOGGER.debug(
+                "Device %s %s: %s",
+                device_id,
+                "base_info and state update" if "base_info" in event_data else "update",
+                device_update
+            )
 
         except Exception as error:
             _LOGGER.error("Error processing WebSocket message: %s", error)

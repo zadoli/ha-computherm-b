@@ -54,6 +54,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.auth_token = None
         self.devices = {}
         self.device_data = {}
+        self.devices_with_base_info = {}  # Track devices that have received base_info
         self._ws_client: WebSocketClient | None = None
 
     async def _async_update_data(self) -> dict[str, Any]:
@@ -190,6 +191,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             for device_id, device_data in update.items():
                 if device_id in self.devices:
+                    # Initialize device_data if not exists
                     if device_id not in self.device_data:
                         self.device_data[device_id] = {
                             **self.devices[device_id],
@@ -199,7 +201,13 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             ATTR_RELAY_STATE: None,
                             ATTR_ONLINE: False,
                             "is_heating": False,
+                            "base_info": None,  # Initialize base_info as None
                         }
+                    
+                    # Check if this update contains base_info
+                    if "base_info" in device_data:
+                        self.devices_with_base_info[device_id] = device_data["base_info"]
+                        _LOGGER.debug("Received base_info for device %s: %s", device_id, device_data["base_info"])
                     self.device_data[device_id].update(device_data)
                     _LOGGER.debug(
                         "Updated device %s - Temp: %s, Target: %s, Mode: %s, Heating: %s",

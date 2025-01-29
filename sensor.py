@@ -1,6 +1,7 @@
 """Sensor platform for Computherm integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from homeassistant.components.sensor import (
@@ -22,7 +23,7 @@ from .const import (
 from .coordinator import ComputhermDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__package__)
-
+    
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -35,10 +36,39 @@ async def async_setup_entry(
     await coordinator.async_config_entry_first_refresh()
     
     entities = []
-    for serial, device_info in coordinator.devices.items():
-        entities.append(ComputhermTemperatureSensor(hass, coordinator, serial))
     
-    async_add_entities(entities, True)
+    # Create a function to add entities when base_info is received
+    async def add_entities_for_device(device_id: str) -> None:
+        """Create and add entities for a device that has received base_info."""
+        if device_id not in coordinator.devices_with_base_info or not coordinator.devices_with_base_info[device_id]:
+            return
+        entity = ComputhermTemperatureSensor(hass, coordinator, device_id)
+        async_add_entities([entity], True)
+    
+    # Add entities for devices that already have base_info
+    for serial in coordinator.devices:
+        if serial in coordinator.devices_with_base_info and coordinator.devices_with_base_info[serial]:
+            entities.append(ComputhermTemperatureSensor(hass, coordinator, serial))
+    
+    if entities:
+        async_add_entities(entities, True)
+    
+    # Set up listener for future base_info updates
+    async def handle_coordinator_update() -> None:
+        """Handle updated data from the coordinator."""
+        tasks = []
+        for device_id in coordinator.devices:
+            if (device_id in coordinator.devices_with_base_info and 
+                coordinator.devices_with_base_info[device_id] and
+                not any(device_id == entity.device_id for entity in entities)):
+                tasks.append(add_entities_for_device(device_id))
+        if tasks:
+            await asyncio.gather(*tasks)
+    
+    # Register listener
+    config_entry.async_on_unload(
+        coordinator.async_add_listener(handle_coordinator_update)
+    )
 
 class ComputhermTemperatureSensor(CoordinatorEntity, SensorEntity):
     """Representation of a Computherm Temperature Sensor."""
