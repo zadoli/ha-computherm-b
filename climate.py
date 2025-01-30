@@ -170,10 +170,13 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     @property
     def target_temperature(self) -> float | None:
         """Return the target temperature."""
-        temp = self.device_data.get(ATTR_TARGET_TEMPERATURE)
-        if temp is not None:
-            _LOGGER.debug("Device %s target temperature: %.1f°C", self.device_id, temp)
-            return float(temp)
+        relays = self.device_data.get("relays", {})
+        relay_id = str(self.device_data['available_relay_ids'][0])
+
+        if relays[relay_id].get("manual_set_point") is not None:
+            temp = float(relays["1"]["manual_set_point"])
+            _LOGGER.debug("Device %s target temperature (manual_set_point): %.1f°C", self.device_id, temp)
+            return temp
         return None
 
     @property
