@@ -58,8 +58,7 @@ async def async_setup_entry(
     
     # Wait for devices to be fetched
     await coordinator.async_config_entry_first_refresh()
-    
-    entities = []
+
     existing_entities = set()  # Track entities we've already added
     
     @callback
@@ -125,9 +124,9 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         self.device_id = serial
         
         # Set unique ID and device info
-        device_name = coordinator.devices_with_base_info[serial].get("name", "thermostat")
-        self._attr_unique_id = f"{DOMAIN}_{serial}_{device_name}"
-        self._attr_name = device_name
+        entity_name = coordinator.device_data[serial].get("base_info", {}).get("name", "thermostat")
+        self._attr_unique_id = f"{DOMAIN}_{serial}_{entity_name}"
+        self._attr_name = entity_name
 
         # Log entity ID and attributes
         _LOGGER.info(
@@ -148,7 +147,7 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         
         # Log device info
         _LOGGER.info(
-            "Climate entity device info - Device serial: %s, name: %s, Info: %s",
+            "Climate entity - Device serial: %s, name: %s, Info: %s",
             serial,
             self._attr_name,
             device_info

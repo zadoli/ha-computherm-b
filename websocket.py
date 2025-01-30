@@ -280,11 +280,37 @@ class WebSocketClient:
                 if device_id not in self.device_ids:
                     _LOGGER.warning("Received base_info for unknown device: %s", device_id)
                     return
+                
+                relay_array = event_data.get("relays", [])
+                reading_array = event_data.get("readings", [])
+                
+                sensors = {
+                    str(reading["sensor"]): {
+                        "id": reading["id"],
+                        "src": reading["src"],
+                        "sensor": reading["sensor"],
+                        "type": reading["type"],
+                        "name": reading["name"]
+                    } for reading in reading_array
+                }
+                
+                relays = {
+                    str(relay["relay"]): relay for relay in relay_array
+                }
+                
+                # Extract available reading and relay identifiers
+                sensor_ids = [str(reading["sensor"]) for reading in reading_array]
+                relay_ids = [str(relay["relay"]) for relay in relay_array]
+                
                 device_update = {
                     ATTR_ONLINE: event_data.get(ATTR_ONLINE, False),
-                    "base_info": event_data["base_info"]
+                    "base_info": event_data["base_info"],
+                    "available_sensor_ids": sensor_ids,
+                    "available_relay_ids": relay_ids,
+                    "sensors": sensors,
+                    "relays": relays,
                 }
-                _LOGGER.info("Updated device %s with base_info: %s", device_id, device_update)
+                _LOGGER.info("Updated device %s with device_update: %s", device_id, device_update)
             else:
                 # Handle regular updates
                 device_id = event_data.get("serial_number")

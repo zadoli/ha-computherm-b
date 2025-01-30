@@ -56,6 +56,11 @@ async def async_setup_entry(
 
         entities_to_add = []
             
+        device_data = coordinator.device_data.get(device_id, {})
+        if not device_data or 'available_sensor_ids' not in device_data:
+            _LOGGER.debug("Device %s has no sensor data yet", device_id)
+            return
+
         # Add temperature sensor if not already added
         if device_id not in existing_temperature_entities:
             _LOGGER.info("Creating temperature sensor entity for device %s", device_id)
@@ -64,7 +69,7 @@ async def async_setup_entry(
             existing_temperature_entities.add(device_id)
             
         # Add humidity sensor if not already added and device has humidity readings
-        if device_id not in existing_humidity_entities and ATTR_HUMIDITY in coordinator.device_data.get(device_id, {}):
+        if device_id not in existing_humidity_entities and ATTR_HUMIDITY in device_data:
             _LOGGER.info("Creating humidity sensor entity for device %s", device_id)
             humidity_entity = ComputhermHumiditySensor(hass, coordinator, device_id)
             entities_to_add.append(humidity_entity)
@@ -148,12 +153,31 @@ class ComputhermTemperatureSensor(ComputhermSensorBase):
     ) -> None:
         """Initialize the temperature sensor."""
         super().__init__(hass, coordinator, serial)
-        self._attr_unique_id = f"{DOMAIN}_{serial}_temperature"
-        self._attr_name = "temperature"
+
+        device_data = coordinator.device_data.get(serial, {})
+
         _LOGGER.info(
-            "Initializing temperature sensor - ID: %s, Device ID: %s",
+            "Initializing temperature sensor with device data: %s",
+            device_data
+        )
+        
+        # Set unique ID and device info        
+        if not device_data or 'available_sensor_ids' not in device_data:
+            _LOGGER.error("Device %s has no sensor data available", serial)
+            entity_name = "temperature"
+        else:
+            sensor_id = str(device_data['available_sensor_ids'][0])
+            entity_name = device_data["sensors"][sensor_id].get("name", "temperature")
+            if "temperature" not in entity_name:
+                entity_name += " temperature"
+                
+        self._attr_unique_id = f"{DOMAIN}_{serial}_{entity_name}"
+        self._attr_name = entity_name
+        
+        _LOGGER.info(
+            "Temperature entity initialized - ID: %s, Name: %s",
             self._attr_unique_id,
-            self.device_id
+            self._attr_name
         )
 
     @property
@@ -178,12 +202,31 @@ class ComputhermHumiditySensor(ComputhermSensorBase):
     ) -> None:
         """Initialize the humidity sensor."""
         super().__init__(hass, coordinator, serial)
-        self._attr_unique_id = f"{DOMAIN}_{serial}_humidity"
-        self._attr_name = "humidity"
+
+        device_data = coordinator.device_data.get(serial, {})
+
         _LOGGER.info(
-            "Initializing humidity sensor - ID: %s, Device ID: %s",
+            "Initializing humidity sensor with device data: %s",
+            device_data
+        )
+
+        # Set unique ID and device info       
+        if not device_data or 'available_sensor_ids' not in device_data:
+            _LOGGER.error("Device %s has no sensor data available", serial)
+            entity_name = "humidity"
+        else:
+            sensor_id = str(device_data['available_sensor_ids'][0])
+            entity_name = device_data["sensors"][sensor_id].get("name", "humidity")
+            if "humidity" not in entity_name:
+                entity_name += " humidity"
+            
+        self._attr_unique_id = f"{DOMAIN}_{serial}_{entity_name}"
+        self._attr_name = entity_name
+        
+        _LOGGER.info(
+            "Humidity entity initialized - ID: %s, Name: %s",
             self._attr_unique_id,
-            self.device_id
+            self._attr_name
         )
 
     @property
