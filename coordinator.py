@@ -216,6 +216,10 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         self.devices_with_base_info[device_id] = device_data["base_info"]
                         # Update device data with base_info
                         self.device_data[device_id]["base_info"] = device_data["base_info"]
+                        self.device_data[device_id]["available_sensor_ids"] = device_data["available_sensor_ids"]
+                        self.device_data[device_id]["available_relay_ids"] = device_data["available_relay_ids"]
+                        self.device_data[device_id]["sensors"] = device_data["sensors"]
+                        self.device_data[device_id]["relays"] = device_data["relays"]
                         # Force a coordinator update to trigger entity creation
                         self.async_set_updated_data(self.device_data)
                     

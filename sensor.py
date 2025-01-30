@@ -54,7 +54,11 @@ async def async_setup_entry(
     existing_temperature_entities = set()  # Track temperature entities we've already added
     existing_humidity_entities = set()  # Track humidity entities we've already added
     existing_relay_entities = set()  # Track relay entities we've already added
-    existing_diagnostic_entities = set()  # Track diagnostic entities we've already added
+    # Track each type of diagnostic entity separately
+    existing_battery_entities = set()
+    existing_rssi_entities = set()
+    existing_rssi_level_entities = set()
+    existing_source_entities = set()
     
     @callback
     def _async_add_entities_for_device(device_id: str) -> None:
@@ -73,6 +77,8 @@ async def async_setup_entry(
         if not device_data or 'available_sensor_ids' not in device_data:
             _LOGGER.debug("Device %s has no sensor data yet", device_id)
             return
+        
+        _LOGGER.debug("Adding entities for device %s based on device_data: %s", device_id, device_data)
 
         # Add temperature sensor if not already added
         if device_id not in existing_temperature_entities:
@@ -95,17 +101,36 @@ async def async_setup_entry(
             entities_to_add.append(relay_entity)
             existing_relay_entities.add(device_id)
 
-        # Add diagnostic sensors if not already added
-        if device_id not in existing_diagnostic_entities:
-            _LOGGER.info("Creating diagnostic sensor entities for device %s", device_id)
-            diagnostic_entities = [
-                ComputhermBatterySensor(hass, coordinator, device_id),
-                ComputhermRSSISensor(hass, coordinator, device_id),
-                ComputhermRSSILevelSensor(hass, coordinator, device_id),
-                ComputhermSourceSensor(hass, coordinator, device_id),
-            ]
+        # Add diagnostic sensors only if their attributes are present and not already added
+        diagnostic_entities = []
+        
+        # Only create battery sensor if battery attribute exists and not already added
+        if ATTR_BATTERY in device_data and device_id not in existing_battery_entities:
+            _LOGGER.info("Creating battery sensor for device %s", device_id)
+            diagnostic_entities.append(ComputhermBatterySensor(hass, coordinator, device_id))
+            existing_battery_entities.add(device_id)
+            
+        # Only create RSSI sensor if RSSI attribute exists and not already added
+        if ATTR_RSSI in device_data and device_id not in existing_rssi_entities:
+            _LOGGER.info("Creating RSSI sensor for device %s", device_id)
+            diagnostic_entities.append(ComputhermRSSISensor(hass, coordinator, device_id))
+            existing_rssi_entities.add(device_id)
+            
+        # Only create RSSI level sensor if RSSI level attribute exists and not already added
+        if ATTR_RSSI_LEVEL in device_data and device_id not in existing_rssi_level_entities:
+            _LOGGER.info("Creating RSSI level sensor for device %s", device_id)
+            diagnostic_entities.append(ComputhermRSSILevelSensor(hass, coordinator, device_id))
+            existing_rssi_level_entities.add(device_id)
+            
+        # Only create source sensor if source attribute exists and not already added
+        if ATTR_SOURCE in device_data and device_id not in existing_source_entities:
+            _LOGGER.info("Creating source sensor for device %s", device_id)
+            diagnostic_entities.append(ComputhermSourceSensor(hass, coordinator, device_id))
+            existing_source_entities.add(device_id)
+        
+        if diagnostic_entities:
             entities_to_add.extend(diagnostic_entities)
-            existing_diagnostic_entities.add(device_id)
+            _LOGGER.info("Created diagnostic entities for device %s", device_id)
             
         if entities_to_add:
             async_add_entities(entities_to_add, True)
