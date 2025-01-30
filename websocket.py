@@ -32,6 +32,7 @@ from .const import (
     ATTR_TARGET_TEMPERATURE,
     ATTR_OPERATION_MODE,
     ATTR_ONLINE,
+    ATTR_RELAY_STATE,
 )
 
 _LOGGER = logging.getLogger(__package__)
@@ -232,6 +233,7 @@ class WebSocketClient:
                 is_heating = relay["relay_state"] == WS_RELAY_STATE_ON
                 device_update["is_heating"] = is_heating
                 device_update[ATTR_OPERATION_MODE] = "heat" if is_heating else "off"
+                device_update[ATTR_RELAY_STATE] = is_heating
                 _LOGGER.debug(
                     "Device %s relay state update: %s",
                     device_id,

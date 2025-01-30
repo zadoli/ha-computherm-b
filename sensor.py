@@ -9,6 +9,10 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorStateClass,
 )
+from homeassistant.components.binary_sensor import (
+    BinarySensorEntity,
+    BinarySensorDeviceClass,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature, PERCENTAGE
 from homeassistant.core import HomeAssistant, callback
@@ -22,6 +26,7 @@ from .const import (
     ATTR_HUMIDITY,
     ATTR_DEVICE_TYPE,
     ATTR_FW_VERSION,
+    ATTR_RELAY_STATE,
 )
 from .coordinator import ComputhermDataUpdateCoordinator
 
@@ -42,6 +47,7 @@ async def async_setup_entry(
     
     existing_temperature_entities = set()  # Track temperature entities we've already added
     existing_humidity_entities = set()  # Track humidity entities we've already added
+    existing_relay_entities = set()  # Track relay entities we've already added
     
     @callback
     def _async_add_entities_for_device(device_id: str) -> None:
@@ -74,6 +80,13 @@ async def async_setup_entry(
             humidity_entity = ComputhermHumiditySensor(hass, coordinator, device_id)
             entities_to_add.append(humidity_entity)
             existing_humidity_entities.add(device_id)
+
+        # Add relay binary sensor if not already added
+        if device_id not in existing_relay_entities:
+            _LOGGER.info("Creating relay binary sensor entity for device %s", device_id)
+            relay_entity = ComputhermRelaySensor(hass, coordinator, device_id)
+            entities_to_add.append(relay_entity)
+            existing_relay_entities.add(device_id)
             
         if entities_to_add:
             async_add_entities(entities_to_add, True)
@@ -186,6 +199,80 @@ class ComputhermTemperatureSensor(ComputhermSensorBase):
         if self.device_data.get(ATTR_TEMPERATURE) is not None:
             return float(self.device_data[ATTR_TEMPERATURE])
         return None
+
+
+class ComputhermRelaySensor(CoordinatorEntity, BinarySensorEntity):
+    """Representation of a Computherm Relay Binary Sensor."""
+
+    _attr_device_class = BinarySensorDeviceClass.HEAT
+    _attr_has_entity_name = True
+    _attr_translation_key = DOMAIN
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        coordinator: ComputhermDataUpdateCoordinator,
+        serial: str,
+    ) -> None:
+        """Initialize the relay sensor."""
+        super().__init__(coordinator)
+        self.device_id = serial
+        
+        device_info = {
+            "identifiers": {(DOMAIN, serial)},
+            "serial_number": serial,
+            "name": f"Computherm {serial}",
+            "manufacturer": "Computherm",
+            "model": coordinator.devices[serial].get(ATTR_DEVICE_TYPE, "") or "B Series Thermostat",
+            "sw_version": coordinator.devices[serial].get(ATTR_FW_VERSION),
+            "hw_version": coordinator.devices[serial].get("type"),
+        }
+        self._attr_device_info = device_info
+
+        device_data = coordinator.device_data.get(serial, {})
+
+        _LOGGER.info(
+            "Initializing relay sensor with device data: %s",
+            device_data
+        )
+
+        entity_name = "relay"
+        self._attr_unique_id = f"{DOMAIN}_{serial}_{entity_name}"
+        self._attr_name = entity_name
+        
+        _LOGGER.info(
+            "Relay entity initialized - ID: %s, Name: %s",
+            self._attr_unique_id,
+            self._attr_name
+        )
+
+    @property
+    def device_data(self) -> dict:
+        """Get the current device data."""
+        return self.coordinator.device_data.get(self.device_id, {})
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return self.device_data.get("online", False)
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if the relay is on."""
+        relay_state = self.device_data.get(ATTR_RELAY_STATE)
+        if relay_state is not None:
+            return relay_state
+        return None
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        _LOGGER.debug(
+            "Relay state update for %s: %s",
+            self.device_id,
+            self.device_data.get(ATTR_RELAY_STATE)
+        )
+        self.async_write_ha_state()
 
 
 class ComputhermHumiditySensor(ComputhermSensorBase):
