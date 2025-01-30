@@ -19,6 +19,8 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from homeassistant.helpers.entity import EntityCategory
+
 from .const import (
     DOMAIN,
     COORDINATOR,
@@ -27,6 +29,10 @@ from .const import (
     ATTR_DEVICE_TYPE,
     ATTR_FW_VERSION,
     ATTR_RELAY_STATE,
+    ATTR_BATTERY,
+    ATTR_RSSI,
+    ATTR_RSSI_LEVEL,
+    ATTR_SOURCE,
 )
 from .coordinator import ComputhermDataUpdateCoordinator
 
@@ -48,6 +54,7 @@ async def async_setup_entry(
     existing_temperature_entities = set()  # Track temperature entities we've already added
     existing_humidity_entities = set()  # Track humidity entities we've already added
     existing_relay_entities = set()  # Track relay entities we've already added
+    existing_diagnostic_entities = set()  # Track diagnostic entities we've already added
     
     @callback
     def _async_add_entities_for_device(device_id: str) -> None:
@@ -87,6 +94,18 @@ async def async_setup_entry(
             relay_entity = ComputhermRelaySensor(hass, coordinator, device_id)
             entities_to_add.append(relay_entity)
             existing_relay_entities.add(device_id)
+
+        # Add diagnostic sensors if not already added
+        if device_id not in existing_diagnostic_entities:
+            _LOGGER.info("Creating diagnostic sensor entities for device %s", device_id)
+            diagnostic_entities = [
+                ComputhermBatterySensor(hass, coordinator, device_id),
+                ComputhermRSSISensor(hass, coordinator, device_id),
+                ComputhermRSSILevelSensor(hass, coordinator, device_id),
+                ComputhermSourceSensor(hass, coordinator, device_id),
+            ]
+            entities_to_add.extend(diagnostic_entities)
+            existing_diagnostic_entities.add(device_id)
             
         if entities_to_add:
             async_add_entities(entities_to_add, True)
@@ -113,11 +132,10 @@ async def async_setup_entry(
     _LOGGER.info("Sensor platform setup completed")
 
 class ComputhermSensorBase(CoordinatorEntity, SensorEntity):
-    """Representation of a Computherm Temperature Sensor."""
+    """Base class for Computherm sensors."""
 
     _attr_has_entity_name = True
     _attr_translation_key = DOMAIN
-    _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(
         self,
@@ -152,7 +170,13 @@ class ComputhermSensorBase(CoordinatorEntity, SensorEntity):
         return self.device_data.get("online", False)
 
 
-class ComputhermTemperatureSensor(ComputhermSensorBase):
+class ComputhermNumericSensorBase(ComputhermSensorBase):
+    """Base class for numeric Computherm sensors."""
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+
+class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
     """Representation of a Computherm Temperature Sensor."""
 
     _attr_device_class = SensorDeviceClass.TEMPERATURE
@@ -199,6 +223,112 @@ class ComputhermTemperatureSensor(ComputhermSensorBase):
         if self.device_data.get(ATTR_TEMPERATURE) is not None:
             return float(self.device_data[ATTR_TEMPERATURE])
         return None
+
+
+class ComputhermBatterySensor(ComputhermNumericSensorBase):
+    """Representation of a Computherm Battery Sensor."""
+
+    _attr_device_class = SensorDeviceClass.BATTERY
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        coordinator: ComputhermDataUpdateCoordinator,
+        serial: str,
+    ) -> None:
+        """Initialize the battery sensor."""
+        super().__init__(hass, coordinator, serial)
+        self._attr_unique_id = f"{DOMAIN}_{serial}_battery"
+        self._attr_name = "Battery"
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the battery level."""
+        battery = self.device_data.get(ATTR_BATTERY)
+        if battery is not None:
+            # Convert "100%" to 100
+            try:
+                return float(battery.rstrip("%"))
+            except (ValueError, AttributeError):
+                return None
+        return None
+
+
+class ComputhermRSSISensor(ComputhermNumericSensorBase):
+    """Representation of a Computherm RSSI Sensor."""
+
+    _attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
+    _attr_native_unit_of_measurement = "dB"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        coordinator: ComputhermDataUpdateCoordinator,
+        serial: str,
+    ) -> None:
+        """Initialize the RSSI sensor."""
+        super().__init__(hass, coordinator, serial)
+        self._attr_unique_id = f"{DOMAIN}_{serial}_rssi"
+        self._attr_name = "RSSI"
+
+    @property
+    def native_value(self) -> float | None:
+        """Return the RSSI value."""
+        rssi = self.device_data.get(ATTR_RSSI)
+        if rssi is not None:
+            # Convert "-85 dB" to -85
+            try:
+                return float(rssi.split()[0])
+            except (ValueError, IndexError):
+                return None
+        return None
+
+
+class ComputhermRSSILevelSensor(ComputhermSensorBase):
+    """Representation of a Computherm RSSI Level Sensor."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        coordinator: ComputhermDataUpdateCoordinator,
+        serial: str,
+    ) -> None:
+        """Initialize the RSSI level sensor."""
+        super().__init__(hass, coordinator, serial)
+        self._attr_unique_id = f"{DOMAIN}_{serial}_rssi_level"
+        self._attr_name = "RSSI Level"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the RSSI level."""
+        return self.device_data.get(ATTR_RSSI_LEVEL)
+
+
+class ComputhermSourceSensor(ComputhermSensorBase):
+    """Representation of a Computherm Source Sensor."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        coordinator: ComputhermDataUpdateCoordinator,
+        serial: str,
+    ) -> None:
+        """Initialize the source sensor."""
+        super().__init__(hass, coordinator, serial)
+        self._attr_unique_id = f"{DOMAIN}_{serial}_source"
+        self._attr_name = "Source"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the source value."""
+        return self.device_data.get(ATTR_SOURCE)
 
 
 class ComputhermRelaySensor(CoordinatorEntity, BinarySensorEntity):
@@ -275,7 +405,7 @@ class ComputhermRelaySensor(CoordinatorEntity, BinarySensorEntity):
         self.async_write_ha_state()
 
 
-class ComputhermHumiditySensor(ComputhermSensorBase):
+class ComputhermHumiditySensor(ComputhermNumericSensorBase):
     """Representation of a Computherm Humidity Sensor."""
 
     _attr_device_class = SensorDeviceClass.HUMIDITY

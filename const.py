@@ -34,6 +34,12 @@ ATTR_OPERATION_MODE = "operation_mode"
 ATTR_RELAY_STATE = "relay_state"
 ATTR_ONLINE = "online"
 
+# Diagnostic Attributes
+ATTR_BATTERY = "battery"
+ATTR_RSSI = "rssi"
+ATTR_RSSI_LEVEL = "rssi_level"
+ATTR_SOURCE = "src"
+
 # WebSocket Configuration
 WEBSOCKET_CONFIG = {
     "URL": "wss://api.computhermbseries.com/socket.io/?EIO=4&transport=websocket",
