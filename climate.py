@@ -125,8 +125,9 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         self.device_id = serial
         
         # Set unique ID and device info
-        self._attr_unique_id = f"{DOMAIN}_{serial}"
-        self._attr_name = coordinator.devices_with_base_info[serial].get("name", "thermostat")
+        device_name = coordinator.devices_with_base_info[serial].get("name", "thermostat")
+        self._attr_unique_id = f"{DOMAIN}_{serial}_{device_name}"
+        self._attr_name = device_name
 
         # Log entity ID and attributes
         _LOGGER.info(
@@ -138,7 +139,7 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         device_info = {
             "identifiers": {(DOMAIN, serial)},
             "serial_number": serial,
-            "name": coordinator.devices_with_base_info[serial].get("name", f"Computherm {serial}"),
+            "name": f"Computherm {serial}",
             "manufacturer": "Computherm",
             "model": self.coordinator.devices[self.device_id].get(ATTR_DEVICE_TYPE, "") or "B Series Thermostat",
             "sw_version": self.coordinator.devices[self.device_id].get(ATTR_FW_VERSION),
@@ -147,8 +148,9 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         
         # Log device info
         _LOGGER.info(
-            "Climate entity device info - Device: %s, Info: %s",
+            "Climate entity device info - Device serial: %s, name: %s, Info: %s",
             serial,
+            self._attr_name,
             device_info
         )
         
