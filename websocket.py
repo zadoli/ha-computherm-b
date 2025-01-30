@@ -204,6 +204,17 @@ class WebSocketClient:
             if "reading" not in reading:
                 continue
                 
+            # Add common sensor attributes if present
+            for attr in ["battery", "rssi", "rssi_level", "src"]:
+                if attr in reading:
+                    device_update[attr] = reading[attr]
+                    _LOGGER.debug(
+                        "Device %s %s update: %s",
+                        device_id,
+                        attr,
+                        reading[attr]
+                    )
+                
             if reading["type"] == WS_TEMPERATURE_EVENT:
                 device_update[ATTR_TEMPERATURE] = reading["reading"]
                 _LOGGER.debug(
