@@ -30,7 +30,7 @@ ATTR_ACCESS_STATUS = "access_status"
 ATTR_TEMPERATURE = "temperature"
 ATTR_HUMIDITY = "humidity"
 ATTR_TARGET_TEMPERATURE = "target_temperature"
-ATTR_OPERATION_MODE = "operation_mode"
+ATTR_FUNCTION = "function"
 ATTR_RELAY_STATE = "relay_state"
 ATTR_ONLINE = "online"
 

@@ -28,9 +28,9 @@ from .const import (
     WS_HUMIDITY_EVENT,
     WS_RELAY_STATE_ON,
     ATTR_TEMPERATURE,
-    ATTR_HUMIDITY,    
+    ATTR_HUMIDITY,
     ATTR_TARGET_TEMPERATURE,
-    ATTR_OPERATION_MODE,
+    ATTR_FUNCTION,
     ATTR_ONLINE,
     ATTR_RELAY_STATE,
 )
@@ -241,14 +241,29 @@ class WebSocketClient:
         """Process relay states and update device state."""
         for relay in relays:
             if "relay_state" in relay:
-                is_heating = relay["relay_state"] == WS_RELAY_STATE_ON
-                device_update["is_heating"] = is_heating
-                device_update[ATTR_OPERATION_MODE] = "heat" if is_heating else "off"
-                device_update[ATTR_RELAY_STATE] = is_heating
+                relay_state = relay[ATTR_RELAY_STATE] == WS_RELAY_STATE_ON
+                device_update[ATTR_RELAY_STATE] = relay_state
+                device_update["is_heating"] = relay_state  # Keep is_heating for backward compatibility
                 _LOGGER.debug(
-                    "Device %s relay state update: %s",
+                    "Device %s relay state update: %s (relay_state: %s, is_heating: %s)",
                     device_id,
-                    "ON" if is_heating else "OFF"
+                    "ON" if relay_state else "OFF",
+                    relay_state,
+                    relay_state
+                )
+            if "function" in relay:
+                device_update[ATTR_FUNCTION] = relay[ATTR_FUNCTION]
+                _LOGGER.debug(
+                    "Device %s function update: %s",
+                    device_id,
+                    relay["function"])
+
+            if "manual_set_point" in relay:
+                device_update[ATTR_TARGET_TEMPERATURE] = relay["manual_set_point"]
+                _LOGGER.debug(
+                    "Device %s target temperature point update: %.1f°C",
+                    device_id,
+                    relay["manual_set_point"]
                 )
 
     async def _handle_message(self, message: str) -> None:
@@ -341,23 +356,15 @@ class WebSocketClient:
             if "relays" in event_data:
                 self._process_relays(event_data["relays"], device_id, device_update)
 
-            # Handle operation mode if explicitly provided
-            if "operation_mode" in event_data:
-                device_update[ATTR_OPERATION_MODE] = event_data["operation_mode"]
-                _LOGGER.debug(
-                    "Device %s operation mode update: %s",
-                    device_id,
-                    event_data["operation_mode"]
-                )
-
-            # Notify callback with the update
-            self.data_callback({device_id: device_update})
             _LOGGER.debug(
                 "Device %s %s: %s",
                 device_id,
                 "base_info and state update" if "base_info" in event_data else "update",
                 device_update
             )
+
+            # Notify callback with the update
+            self.data_callback({device_id: device_update})
 
         except Exception as error:
             _LOGGER.error("Error processing WebSocket message: %s", error)

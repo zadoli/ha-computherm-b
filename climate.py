@@ -29,10 +29,10 @@ from .const import (
     API_DEVICE_CONTROL_ENDPOINT,
     ATTR_DEVICE_TYPE,
     ATTR_FW_VERSION,
-    ATTR_DEVICE_IP,
+    ATTR_RELAY_STATE,
     ATTR_TEMPERATURE,
     ATTR_TARGET_TEMPERATURE,
-    ATTR_OPERATION_MODE,
+    ATTR_FUNCTION,
     ATTR_ONLINE,
     ATTR_HUMIDITY,
 )
@@ -107,7 +107,8 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     _attr_has_entity_name = True
     _attr_translation_key = DOMAIN
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF]
+    _attr_icon = "mdi:thermostat"
+    _attr_hvac_modes = [HVACMode.HEAT, HVACMode.COOL, HVACMode.OFF]
     _attr_supported_features = SUPPORT_FLAGS
     _attr_min_temp = 5
     _attr_max_temp = 30
@@ -170,13 +171,8 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     @property
     def target_temperature(self) -> float | None:
         """Return the target temperature."""
-        relays = self.device_data.get("relays", {})
-        relay_id = str(self.device_data['available_relay_ids'][0])
-
-        if relays[relay_id].get("manual_set_point") is not None:
-            temp = float(relays["1"]["manual_set_point"])
-            _LOGGER.debug("Device %s target temperature (manual_set_point): %.1f°C", self.device_id, temp)
-            return temp
+        if self.device_data.get(ATTR_TARGET_TEMPERATURE) is not None:
+            return float(self.device_data[ATTR_TARGET_TEMPERATURE])
         return None
 
     @property
@@ -184,9 +180,9 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         """Return the current operation mode."""
         if not self.device_data.get(ATTR_ONLINE, False):
             return HVACMode.OFF
-        operation_mode = self.device_data.get(ATTR_OPERATION_MODE)
-        if operation_mode == "off":
-            return HVACMode.OFF
+        function = self.device_data.get(ATTR_FUNCTION)
+        if function == "COOLING":
+            return HVACMode.COOL
         return HVACMode.HEAT
 
     @property
@@ -198,9 +194,25 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         if self.hvac_mode == HVACMode.OFF:
             _LOGGER.debug("Device %s mode is OFF, setting action to OFF", self.device_id)
             return HVACAction.OFF
-        is_heating = self.device_data.get("is_heating", False)
-        action = HVACAction.HEATING if is_heating else HVACAction.IDLE
-        return action
+        function = self.device_data.get(ATTR_FUNCTION)
+        relay_state = self.device_data.get(ATTR_RELAY_STATE, False)
+        
+        _LOGGER.debug(
+            "Device %s - Function: %s, Relay State: %s, HVAC Mode: %s",
+            self.device_id,
+            function,
+            relay_state,
+            self.hvac_mode
+        )
+        
+        if function == "COOLING":
+            action = HVACAction.COOLING if relay_state else HVACAction.IDLE
+            _LOGGER.debug("Device %s - Cooling Action: %s", self.device_id, action)
+            return action
+        else:
+            action = HVACAction.HEATING if relay_state else HVACAction.IDLE
+            _LOGGER.debug("Device %s - Heating Action: %s", self.device_id, action)
+            return action
 
     @property
     def available(self) -> bool:

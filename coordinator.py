@@ -25,7 +25,7 @@ from .const import (
     ATTR_TEMPERATURE,
     ATTR_TARGET_TEMPERATURE,
     ATTR_ONLINE,
-    ATTR_OPERATION_MODE,
+    ATTR_FUNCTION,
     ATTR_RELAY_STATE,
 )
 from .websocket import WebSocketClient
@@ -203,7 +203,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             **self.devices[device_id],
                             ATTR_TEMPERATURE: None,
                             ATTR_TARGET_TEMPERATURE: None,
-                            ATTR_OPERATION_MODE: None,
+                            ATTR_FUNCTION: None,
                             ATTR_RELAY_STATE: None,
                             ATTR_ONLINE: False,
                             "is_heating": False,
@@ -220,18 +220,22 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         self.device_data[device_id]["available_relay_ids"] = device_data["available_relay_ids"]
                         self.device_data[device_id]["sensors"] = device_data["sensors"]
                         self.device_data[device_id]["relays"] = device_data["relays"]
-                        # Force a coordinator update to trigger entity creation
-                        self.async_set_updated_data(self.device_data)
                     
-                    # Update device data
-                    self.device_data[device_id].update(device_data)
+                    # Preserve existing function if not provided in update
+                    if device_data.get(ATTR_FUNCTION) is None and self.device_data[device_id].get(ATTR_FUNCTION) is not None:
+                        existing_function = self.device_data[device_id][ATTR_FUNCTION]
+                        self.device_data[device_id].update(device_data)
+                        self.device_data[device_id][ATTR_FUNCTION] = existing_function
+                    else:
+                        self.device_data[device_id].update(device_data)
+
                     _LOGGER.info(
-                        "Updated device %s - Online: %s, Temp: %s, Target: %s, Mode: %s, Heating: %s",
+                        "Updated device %s - Online: %s, Temp: %s, Target: %s, Function: %s, Heating: %s",
                         device_id,
                         device_data.get(ATTR_ONLINE),
                         device_data.get(ATTR_TEMPERATURE),
                         device_data.get(ATTR_TARGET_TEMPERATURE),
-                        device_data.get(ATTR_OPERATION_MODE),
+                        device_data.get(ATTR_FUNCTION),
                         device_data.get("is_heating")
                     )
                     

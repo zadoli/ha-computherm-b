@@ -77,8 +77,6 @@ async def async_setup_entry(
         if not device_data or 'available_sensor_ids' not in device_data:
             _LOGGER.debug("Device %s has no sensor data yet", device_id)
             return
-        
-        _LOGGER.debug("Adding entities for device %s based on device_data: %s", device_id, device_data)
 
         # Add temperature sensor if not already added
         if device_id not in existing_temperature_entities:
@@ -206,6 +204,7 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
 
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_icon = "mdi:thermometer"
 
     def __init__(
         self,
@@ -256,6 +255,7 @@ class ComputhermBatterySensor(ComputhermNumericSensorBase):
     _attr_device_class = SensorDeviceClass.BATTERY
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:battery"
 
     def __init__(
         self,
@@ -287,6 +287,7 @@ class ComputhermRSSISensor(ComputhermNumericSensorBase):
     _attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
     _attr_native_unit_of_measurement = "dB"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:wifi"
 
     def __init__(
         self,
@@ -316,6 +317,7 @@ class ComputhermRSSILevelSensor(ComputhermSensorBase):
     """Representation of a Computherm RSSI Level Sensor."""
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:wifi-strength"
 
     def __init__(
         self,
@@ -338,6 +340,7 @@ class ComputhermSourceSensor(ComputhermSensorBase):
     """Representation of a Computherm Source Sensor."""
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:connection"
 
     def __init__(
         self,
@@ -435,6 +438,7 @@ class ComputhermHumiditySensor(ComputhermNumericSensorBase):
 
     _attr_device_class = SensorDeviceClass.HUMIDITY
     _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_icon = "mdi:water-percent"
 
     def __init__(
         self,

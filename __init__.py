@@ -1,7 +1,6 @@
 """The Computherm Integration."""
 from __future__ import annotations
 
-import asyncio
 import logging
 
 # ANSI color codes
