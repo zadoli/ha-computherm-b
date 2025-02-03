@@ -110,8 +110,6 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     _attr_icon = "mdi:thermostat"
     _attr_hvac_modes = [HVACMode.HEAT, HVACMode.COOL, HVACMode.OFF]
     _attr_supported_features = SUPPORT_FLAGS
-    _attr_min_temp = 5
-    _attr_max_temp = 30
     _attr_target_temperature_step = 0.5
 
     def __init__(
@@ -123,6 +121,14 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         """Initialize the thermostat."""
         super().__init__(coordinator)
         self.device_id = serial
+        
+        # Get min/max temperature from relays config if available
+        relays = coordinator.device_data[serial].get("relays", {})
+        first_relay = next(iter(relays.values()), {})
+        configs = first_relay.get("configs", {})
+        self._attr_min_temp = configs.get("setpoint_min", 5)
+        self._attr_max_temp = configs.get("setpoint_max", 30)
+
         
         # Set unique ID and device info
         entity_name = coordinator.device_data[serial].get("base_info", {}).get("name", "thermostat")
