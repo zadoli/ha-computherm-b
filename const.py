@@ -8,7 +8,7 @@ COORDINATOR = "coordinator"
 API_BASE_URL = "https://api.computhermbseries.com"
 API_LOGIN_ENDPOINT = "/api/auth/login"
 API_DEVICES_ENDPOINT = "/api/devices"
-API_DEVICE_CONTROL_ENDPOINT = "/api/devices/{serial_number}/control"
+API_DEVICE_CONTROL_ENDPOINT = "/api/devices/{device_id}/cmd"
 
 # Device Types and Models
 DEVICE_TYPES = {
@@ -84,7 +84,8 @@ DEFAULT_SCAN_INTERVAL = 30  # seconds
 # Mode Values
 MODE_SCHEDULE = "SCHEDULE"
 MODE_MANUAL = "MANUAL"
-AVAILABLE_MODES = [MODE_SCHEDULE, MODE_MANUAL]
+MODE_OFF = "OFF"
+AVAILABLE_MODES = [MODE_SCHEDULE, MODE_MANUAL, MODE_OFF]
 
 # Function Values
 FUNCTION_HEATING = "HEATING"

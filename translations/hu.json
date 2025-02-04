@@ -27,7 +27,8 @@
                 "name": "Mód",
                 "state": {
                     "SCHEDULE": "Program",
-                    "MANUAL": "Kézi"
+                    "MANUAL": "Kézi",
+                    "OFF": "Ki"
                 }
             },
             "function": {

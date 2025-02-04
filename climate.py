@@ -35,6 +35,8 @@ from .const import (
     ATTR_FUNCTION,
     ATTR_ONLINE,
     ATTR_HUMIDITY,
+    ATTR_DEVICE_ID,
+    ATTR_MODE,
 )
 from .coordinator import ComputhermDataUpdateCoordinator
 
@@ -110,7 +112,7 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     _attr_icon = "mdi:thermostat"
     _attr_hvac_modes = [HVACMode.HEAT, HVACMode.COOL, HVACMode.OFF]
     _attr_supported_features = SUPPORT_FLAGS
-    _attr_target_temperature_step = 0.5
+    _attr_target_temperature_step = 0.1
 
     def __init__(
         self,
@@ -120,10 +122,14 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     ) -> None:
         """Initialize the thermostat."""
         super().__init__(coordinator)
-        self.device_id = serial
+        self.serial_number = serial
+        # Get the API ID from devices dictionary
+        self.api_device_id = coordinator.devices[serial].get(ATTR_DEVICE_ID)
+        if not self.api_device_id:
+            _LOGGER.error("No API device ID found for serial number %s", serial)
         
         # Get min/max temperature from relays config if available
-        relays = coordinator.device_data[serial].get("relays", {})
+        relays = coordinator.device_data[self.serial_number].get("relays", {})
         first_relay = next(iter(relays.values()), {})
         configs = first_relay.get("configs", {})
         self._attr_min_temp = configs.get("setpoint_min", 5)
@@ -131,15 +137,15 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
 
         
         # Set unique ID and device info
-        entity_name = coordinator.device_data[serial].get("base_info", {}).get("name", "thermostat")
-        self._attr_unique_id = f"{DOMAIN}_{serial}_{entity_name}"
+        entity_name = coordinator.device_data[self.serial_number].get("base_info", {}).get("name", "thermostat")
+        self._attr_unique_id = f"{DOMAIN}_{self.serial_number}_{entity_name}"
         self._attr_name = entity_name
 
         # Log entity ID and attributes
         _LOGGER.info(
             "Initializing climate entity - ID: %s, Device ID: %s",
             self._attr_unique_id,
-            self.device_id
+            self.serial_number
         )
         
         device_info = {
@@ -147,9 +153,9 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
             "serial_number": serial,
             "name": f"Computherm {serial}",
             "manufacturer": "Computherm",
-            "model": self.coordinator.devices[self.device_id].get(ATTR_DEVICE_TYPE, "") or "B Series Thermostat",
-            "sw_version": self.coordinator.devices[self.device_id].get(ATTR_FW_VERSION),
-            "hw_version": self.coordinator.devices[self.device_id].get("type"),            
+            "model": self.coordinator.devices[self.serial_number].get(ATTR_DEVICE_TYPE, "") or "B Series Thermostat",
+            "sw_version": self.coordinator.devices[self.serial_number].get(ATTR_FW_VERSION),
+            "hw_version": self.coordinator.devices[self.serial_number].get("type"),            
         }
         
         # Log device info
@@ -165,7 +171,7 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     @property
     def device_data(self) -> dict:
         """Get the current device data."""
-        return self.coordinator.device_data.get(self.device_id, {})
+        return self.coordinator.device_data.get(self.serial_number, {})
 
     @property
     def current_temperature(self) -> float | None:
@@ -184,8 +190,8 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     @property
     def hvac_mode(self) -> HVACMode:
         """Return the current operation mode."""
-        if not self.device_data.get(ATTR_ONLINE, False):
-            return HVACMode.OFF
+        if not self.device_data.get(ATTR_ONLINE, False) or "OFF" == self.device_data.get(ATTR_MODE):
+            return HVACMode.OFF        
         function = self.device_data.get(ATTR_FUNCTION)
         if function == "COOLING":
             return HVACMode.COOL
@@ -195,17 +201,17 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     def hvac_action(self) -> HVACAction | None:
         """Return the current running hvac operation."""
         if not self.device_data.get(ATTR_ONLINE, False):
-            _LOGGER.debug("Device %s is offline, setting action to OFF", self.device_id)
+            _LOGGER.debug("Device %s is offline, setting action to OFF", self.serial_number)
             return HVACAction.OFF
         if self.hvac_mode == HVACMode.OFF:
-            _LOGGER.debug("Device %s mode is OFF, setting action to OFF", self.device_id)
+            _LOGGER.debug("Device %s mode is OFF, setting action to OFF", self.serial_number)
             return HVACAction.OFF
         function = self.device_data.get(ATTR_FUNCTION)
         relay_state = self.device_data.get(ATTR_RELAY_STATE, False)
         
         _LOGGER.debug(
             "Device %s - Function: %s, Relay State: %s, HVAC Mode: %s",
-            self.device_id,
+            self.serial_number,
             function,
             relay_state,
             self.hvac_mode
@@ -213,11 +219,11 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         
         if function == "COOLING":
             action = HVACAction.COOLING if relay_state else HVACAction.IDLE
-            _LOGGER.debug("Device %s - Cooling Action: %s", self.device_id, action)
+            _LOGGER.debug("Device %s - Cooling Action: %s", self.serial_number, action)
             return action
         else:
             action = HVACAction.HEATING if relay_state else HVACAction.IDLE
-            _LOGGER.debug("Device %s - Heating Action: %s", self.device_id, action)
+            _LOGGER.debug("Device %s - Heating Action: %s", self.serial_number, action)
             return action
 
     @property
@@ -240,58 +246,115 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
 
         try:
             _LOGGER.info(
-                "Setting temperature to %.1f°C for device %s",
+                "Setting temperature to %.1f°C for device %s (API ID: %s)",
                 temperature,
-                self.device_id
+                self.serial_number,
+                self.api_device_id
+            )
+            request_data = {
+                "relay": 1,
+                "manual_set_point": round(float(temperature), 1),
+            }
+            _LOGGER.info(
+                "Sending temperature change request for device %s (API ID: %s): %s",
+                self.serial_number,
+                self.api_device_id,
+                request_data
             )
             async with self.coordinator.session.post(
-                f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(serial_number=self.device_id)}",
+                f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(device_id=self.api_device_id)}",
                 headers={"Authorization": f"Bearer {self.coordinator.auth_token}"},
-                json={"target_temperature": temperature},
+                json=request_data,
             ) as response:
+                response_data = await response.json()
+                _LOGGER.info(
+                    "Temperature change response for device %s (API ID: %s): %s",
+                    self.serial_number,
+                    self.api_device_id,
+                    response_data
+                )
                 response.raise_for_status()
                 _LOGGER.info(
-                    "Successfully set temperature to %.1f°C for device %s",
+                    "Successfully set temperature to %.1f°C for device %s (API ID: %s)",
                     temperature,
-                    self.device_id
+                    self.serial_number,
+                    self.api_device_id
                 )
                 await self.coordinator.async_request_refresh()
 
         except Exception as error:
             _LOGGER.error(
-                "Failed to set temperature for device %s: %s",
-                self.device_id,
+                "Failed to set temperature for device %s (API ID: %s): %s",
+                self.serial_number,
+                self.api_device_id,
                 error
             )
             raise
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new operation mode."""
-        operation_mode = "heat" if hvac_mode == HVACMode.HEAT else "off"
+
+        operation = None
+        mode = None
+        if hvac_mode == HVACMode.OFF:
+            operation = "mode"
+            mode = "OFF"
+        
+        if hvac_mode == HVACMode.HEAT:
+            operation = "function"
+            mode = "HEATING"
+
+        if hvac_mode == HVACMode.COOL:
+            operation = "function"
+            mode = "COOLING"      
         
         try:
             _LOGGER.info(
-                "Setting operation mode to %s for device %s",
-                operation_mode,
-                self.device_id
+                "Setting operation mode to %s for device %s (API ID: %s)",
+                mode,
+                self.serial_number,
+                self.api_device_id
+            )
+            request_data = {
+                "relay": 1,
+                operation: mode
+            }
+
+            if "OFF" == self.device_data.get(ATTR_MODE):
+                request_data["mode"] = "MANUAL"
+
+            _LOGGER.info(
+                "Sending HVAC mode change request for device %s (API ID: %s): %s",
+                self.serial_number,
+                self.api_device_id,
+                request_data
             )
             async with self.coordinator.session.post(
-                f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(serial_number=self.device_id)}",
+                f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(device_id=self.api_device_id)}",
                 headers={"Authorization": f"Bearer {self.coordinator.auth_token}"},
-                json={"operation_mode": operation_mode},
+                json=request_data,
             ) as response:
+                response_data = await response.json()
+                _LOGGER.info(
+                    "HVAC mode change response for device %s (API ID: %s): %s",
+                    self.serial_number,
+                    self.api_device_id,
+                    response_data
+                )
                 response.raise_for_status()
                 _LOGGER.info(
-                    "Successfully set operation mode to %s for device %s",
-                    operation_mode,
-                    self.device_id
+                    "Successfully set operation mode to %s for device %s (API ID: %s)",
+                    mode,
+                    self.serial_number,
+                    self.api_device_id
                 )
                 await self.coordinator.async_request_refresh()
 
         except Exception as error:
             _LOGGER.error(
-                "Failed to set operation mode for device %s: %s",
-                self.device_id,
+                "Failed to set operation mode for device %s (API ID: %s): %s",
+                self.serial_number,
+                self.api_device_id,
                 error
             )
             raise

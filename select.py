@@ -18,12 +18,10 @@ from .const import (
     ATTR_DEVICE_TYPE,
     ATTR_FW_VERSION,
     ATTR_DEVICE_ID,
-    MODE_SCHEDULE,
-    MODE_MANUAL,
     AVAILABLE_MODES,
-    FUNCTION_HEATING,
-    FUNCTION_COOLING,
     AVAILABLE_FUNCTIONS,
+    API_BASE_URL,
+    API_DEVICE_CONTROL_ENDPOINT,
 )
 from .coordinator import ComputhermDataUpdateCoordinator
 
@@ -150,10 +148,10 @@ class ComputhermModeSelect(CoordinatorEntity, SelectEntity):
             _LOGGER.error("Cannot change mode: No API device ID available for serial number %s", self.serial_number)
             return
 
-        url = f"https://api.computhermbseries.com/api/devices/{self.api_device_id}/cmd"
+        url = f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(device_id=self.api_device_id)}"
         payload = {
             "relay": 1,
-            "mode": f"{option}"
+            "mode": option
         }
 
         headers = {
@@ -234,11 +232,11 @@ class ComputhermFunctionSelect(CoordinatorEntity, SelectEntity):
         if not self.api_device_id:
             _LOGGER.error("Cannot change function: No API device ID available for serial number %s", self.serial_number)
             return
-
-        url = f"https://api.computhermbseries.com/api/devices/{self.api_device_id}/cmd"
+            
+        url = f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(device_id=self.api_device_id)}"
         payload = {
             "relay": 1,
-            "function": f"{option}"
+            "function": option
         }
 
         headers = {

@@ -34,6 +34,7 @@ from .const import (
     ATTR_MODE,
     ATTR_ONLINE,
     ATTR_RELAY_STATE,
+    ATTR_SERIAL_NUMBER,
 )
 
 _LOGGER = logging.getLogger(__package__)
@@ -44,12 +45,12 @@ class WebSocketClient:
     def __init__(
         self,
         auth_token: str,
-        device_ids: list[str],
+        device_serials: list[str],
         data_callback: Callable[[dict[str, Any]], None],
     ) -> None:
         """Initialize the WebSocket client."""
         self.auth_token = auth_token
-        self.device_ids = device_ids
+        self.device_serials = device_serials
         self.data_callback = data_callback
         self.websocket = None
         self._ws_task = None
@@ -147,16 +148,16 @@ class WebSocketClient:
                         self._ping_task = asyncio.create_task(self._ping_handler())
 
                     # Subscribe to all devices in a single message
-                    device_ids_json = json.dumps(self.device_ids)
-                    subscribe_msg = WS_SUBSCRIBE_MESSAGE.format(device_ids=device_ids_json)
+                    device_serials_json = json.dumps(self.device_serials)
+                    subscribe_msg = WS_SUBSCRIBE_MESSAGE.format(device_ids=device_serials_json)
                     await websocket.send(subscribe_msg)
-                    _LOGGER.info("Subscribed to devices: %s", self.device_ids)
+                    _LOGGER.info("Subscribed to devices: %s", self.device_serials)
                     
                     # Request properties for each device
-                    for device_id in self.device_ids:
-                        scan_msg = WS_SCAN_MESSAGE.format(device_id=device_id)
+                    for serial in self.device_serials:
+                        scan_msg = WS_SCAN_MESSAGE.format(device_id=serial)
                         await websocket.send(scan_msg)
-                        _LOGGER.info("Sent scan request for device %s", device_id)
+                        _LOGGER.info("Sent scan request for device %s", serial)
 
                     # Process incoming messages
                     while True:
@@ -199,7 +200,7 @@ class WebSocketClient:
                 _LOGGER.error("Error in ping handler: %s", error)
                 return
 
-    def _process_readings(self, readings: list, device_id: str, device_update: dict) -> None:
+    def _process_readings(self, readings: list, serial: str, device_update: dict) -> None:
         """Process temperature and humidity readings and update device state."""
         for reading in readings:
             if "reading" not in reading:
@@ -211,7 +212,7 @@ class WebSocketClient:
                     device_update[attr] = reading[attr]
                     _LOGGER.debug(
                         "Device %s %s update: %s",
-                        device_id,
+                        serial,
                         attr,
                         reading[attr]
                     )
@@ -220,57 +221,61 @@ class WebSocketClient:
                 device_update[ATTR_TEMPERATURE] = reading["reading"]
                 _LOGGER.debug(
                     "Device %s temperature update: %.1f°C",
-                    device_id,
+                    serial,
                     reading["reading"]
                 )
             elif reading["type"] == WS_HUMIDITY_EVENT:
                 device_update[ATTR_HUMIDITY] = reading["reading"]
                 _LOGGER.debug(
                     "Device %s humidity update: %.1f%%",
-                    device_id,
+                    serial,
                     reading["reading"]
                 )
             elif reading["type"] == WS_TARGET_TEMPERATURE_EVENT:
                 device_update[ATTR_TARGET_TEMPERATURE] = reading["reading"]
                 _LOGGER.debug(
                     "Device %s target temperature update: %.1f°C",
-                    device_id,
+                    serial,
                     reading["reading"]
                 )
 
-    def _process_relays(self, relays: list, device_id: str, device_update: dict) -> None:
+    def _process_relays(self, relays: list, serial: str, device_update: dict) -> None:
         """Process relay states and update device state."""
+        _LOGGER.debug("Processing relays for device %s: %s", serial, relays)
         for relay in relays:
+            _LOGGER.debug("Processing relay update for device %s: %s", serial, relay)
             if "relay_state" in relay:
                 relay_state = relay[ATTR_RELAY_STATE] == WS_RELAY_STATE_ON
                 device_update[ATTR_RELAY_STATE] = relay_state
                 device_update["is_heating"] = relay_state  # Keep is_heating for backward compatibility
                 _LOGGER.debug(
                     "Device %s relay state update: %s (relay_state: %s, is_heating: %s)",
-                    device_id,
+                    serial,
                     "ON" if relay_state else "OFF",
                     relay_state,
                     relay_state
                 )
             if "function" in relay:
-                device_update[ATTR_FUNCTION] = relay[ATTR_FUNCTION]
+                function_value = str(relay[ATTR_FUNCTION]).upper() if relay[ATTR_FUNCTION] is not None else None
+                device_update[ATTR_FUNCTION] = function_value
                 _LOGGER.debug(
                     "Device %s function update: %s",
-                    device_id,
-                    relay["function"])
+                    serial,
+                    function_value)
                     
             if "mode" in relay:
-                device_update[ATTR_MODE] = relay["mode"]
+                mode_value = str(relay["mode"]).upper() if relay["mode"] is not None else None
+                device_update[ATTR_MODE] = mode_value
                 _LOGGER.debug(
                     "Device %s mode update: %s",
-                    device_id,
-                    relay["mode"])
+                    serial,
+                    mode_value)
 
             if "manual_set_point" in relay:
                 device_update[ATTR_TARGET_TEMPERATURE] = relay["manual_set_point"]
                 _LOGGER.debug(
                     "Device %s target temperature point update: %.1f°C",
-                    device_id,
+                    serial,
                     relay["manual_set_point"]
                 )
 
@@ -294,27 +299,27 @@ class WebSocketClient:
             # Handle error responses
             if data[0] == "exception":
                 error_data = data[1]
-                _LOGGER.error("WebSocket error response: %s (Code: %s)", 
-                                error_data.get("message"), error_data.get("code"))
+                _LOGGER.error("WebSocket error response: %s (Code: %s, Full data: %s)", 
+                             error_data.get("message"), error_data.get("code"), error_data)
                 return
                 
             if data[0] != "event":
-                _LOGGER.debug("Ignoring non-event message: %s", data[0])
+                _LOGGER.debug("Received non-event message - Type: %s, Data: %s", data[0], data[1])
                 return
 
             event_data = data[1]
-            device_id = None
+            serial = None
             device_update = {}
 
             # Handle base_info case
             if "base_info" in event_data:
                 _LOGGER.info("Received base_info event: %s", event_data)
-                device_id = event_data["base_info"].get("serial_number")
-                if not device_id:
+                serial = event_data["base_info"].get(ATTR_SERIAL_NUMBER)
+                if not serial:
                     _LOGGER.warning("base_info missing serial_number: %s", event_data)
                     return
-                if device_id not in self.device_ids:
-                    _LOGGER.warning("Received base_info for unknown device: %s", device_id)
+                if serial not in self.device_serials:
+                    _LOGGER.warning("Received base_info for unknown device: %s", serial)
                     return
                 
                 relay_array = event_data.get("relays", [])
@@ -346,12 +351,12 @@ class WebSocketClient:
                     "sensors": sensors,
                     "relays": relays,
                 }
-                _LOGGER.info("Updated device %s with device_update: %s", device_id, device_update)
+                _LOGGER.info("Updated device %s with device_update: %s", serial, device_update)
             else:
                 # Handle regular updates
-                device_id = event_data.get("serial_number")
-                if not device_id or device_id not in self.device_ids:
-                    _LOGGER.warning("Invalid or unknown device ID in update: %s", device_id)
+                serial = event_data.get(ATTR_SERIAL_NUMBER)
+                if not serial or serial not in self.device_serials:
+                    _LOGGER.warning("Invalid or unknown device serial in update: %s", serial)
                     return
                 device_update = {
                     ATTR_ONLINE: event_data.get(ATTR_ONLINE, False)
@@ -359,20 +364,25 @@ class WebSocketClient:
 
             # Process readings and relays
             if "readings" in event_data:
-                self._process_readings(event_data["readings"], device_id, device_update)
+                self._process_readings(event_data["readings"], serial, device_update)
 
             if "relays" in event_data:
-                self._process_relays(event_data["relays"], device_id, device_update)
+                _LOGGER.debug(
+                    "Device %s received relay update: %s",
+                    serial,
+                    event_data["relays"]
+                )
+                self._process_relays(event_data["relays"], serial, device_update)
 
             _LOGGER.debug(
                 "Device %s %s: %s",
-                device_id,
+                serial,
                 "base_info and state update" if "base_info" in event_data else "update",
                 device_update
             )
 
             # Notify callback with the update
-            self.data_callback({device_id: device_update})
+            self.data_callback({serial: device_update})
 
         except Exception as error:
             _LOGGER.error("Error processing WebSocket message: %s", error)

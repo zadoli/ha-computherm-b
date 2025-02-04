@@ -5,7 +5,8 @@
                 "name": "Mode",
                 "state": {
                     "SCHEDULE": "Schedule",
-                    "MANUAL": "Manual"
+                    "MANUAL": "Manual",
+                    "OFF": "Off"
                 }
             },
             "function": {

@@ -22,6 +22,7 @@ from .const import (
     ATTR_FW_VERSION,
     ATTR_DEVICE_IP,
     ATTR_ACCESS_STATUS,
+    ATTR_DEVICE_ID,
     ATTR_TEMPERATURE,
     ATTR_TARGET_TEMPERATURE,
     ATTR_ONLINE,
@@ -139,7 +140,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     serial = device.get(ATTR_SERIAL_NUMBER)
                     if serial:
                         self.devices[serial] = {
-                            "id": device.get("id"),
+                            ATTR_DEVICE_ID: device.get("id"),
                             ATTR_SERIAL_NUMBER: serial,
                             "brand": device.get("brand"),
                             "type": device.get("type"),
@@ -150,7 +151,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             ATTR_ACCESS_STATUS: device.get(ATTR_ACCESS_STATUS),
                             "access_rules": device.get("access_rules", {})
                         }
-                        _LOGGER.info("Found device: %s (Type: %s)", serial, device.get(ATTR_DEVICE_TYPE, "unknown"))
+                        _LOGGER.info("Found device: %s with data: %s", serial, self.devices[serial])
                     else:
                         _LOGGER.warning("Device without serial number found: %s", device)
                 
@@ -182,7 +183,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 _LOGGER.info("Setting up WebSocket connection for devices: %s", list(self.devices.keys()))
                 self._ws_client = WebSocketClient(
                     auth_token=self.auth_token,
-                    device_ids=list(self.devices.keys()),
+                    device_serials=list(self.devices.keys()),
                     data_callback=self._handle_ws_update,
                 )
                 await self._ws_client.start()
@@ -195,13 +196,13 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _handle_ws_update(self, update: dict[str, Any]) -> None:
         """Handle device updates from WebSocket."""
         try:
-            for device_id, device_data in update.items():
-                if device_id in self.devices:
+            for serial, device_data in update.items():
+                if serial in self.devices:
                     # Initialize device_data if not exists
-                    if device_id not in self.device_data:
-                        _LOGGER.info("Initializing data structure for device %s", device_id)
-                        self.device_data[device_id] = {
-                            **self.devices[device_id],
+                    if serial not in self.device_data:
+                        _LOGGER.info("Initializing data structure for device %s", serial)
+                        self.device_data[serial] = {
+                            **self.devices[serial],
                             ATTR_TEMPERATURE: None,
                             ATTR_TARGET_TEMPERATURE: None,
                             ATTR_FUNCTION: None,
@@ -214,30 +215,31 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     
                     # Check if this update contains base_info
                     if "base_info" in device_data:
-                        _LOGGER.info("Received base_info for device %s: %s", device_id, device_data["base_info"])
-                        self.devices_with_base_info[device_id] = device_data["base_info"]
+                        _LOGGER.info("Received base_info for device %s: %s", serial, device_data["base_info"])
+                        self.devices_with_base_info[serial] = device_data["base_info"]
                         # Update device data with base_info
-                        self.device_data[device_id]["base_info"] = device_data["base_info"]
-                        self.device_data[device_id]["available_sensor_ids"] = device_data["available_sensor_ids"]
-                        self.device_data[device_id]["available_relay_ids"] = device_data["available_relay_ids"]
-                        self.device_data[device_id]["sensors"] = device_data["sensors"]
-                        self.device_data[device_id]["relays"] = device_data["relays"]
+                        self.device_data[serial]["base_info"] = device_data["base_info"]
+                        self.device_data[serial]["available_sensor_ids"] = device_data["available_sensor_ids"]
+                        self.device_data[serial]["available_relay_ids"] = device_data["available_relay_ids"]
+                        self.device_data[serial]["sensors"] = device_data["sensors"]
+                        self.device_data[serial]["relays"] = device_data["relays"]
                     
                     # Preserve existing function and mode if not provided in update
-                    if device_data.get(ATTR_FUNCTION) is None and self.device_data[device_id].get(ATTR_FUNCTION) is not None:
-                        existing_function = self.device_data[device_id][ATTR_FUNCTION]
-                        self.device_data[device_id].update(device_data)
-                        self.device_data[device_id][ATTR_FUNCTION] = existing_function
-                    elif device_data.get(ATTR_MODE) is None and self.device_data[device_id].get(ATTR_MODE) is not None:
-                        existing_mode = self.device_data[device_id][ATTR_MODE]
-                        self.device_data[device_id].update(device_data)
-                        self.device_data[device_id][ATTR_MODE] = existing_mode
+                    if device_data.get(ATTR_FUNCTION) is None and self.device_data[serial].get(ATTR_FUNCTION) is not None:
+                        existing_function = self.device_data[serial][ATTR_FUNCTION]
+                        self.device_data[serial].update(device_data)
+                        self.device_data[serial][ATTR_FUNCTION] = existing_function
+                    elif device_data.get(ATTR_MODE) is None and self.device_data[serial].get(ATTR_MODE) is not None:
+                        existing_mode = self.device_data[serial][ATTR_MODE]
+                        self.device_data[serial].update(device_data)
+                        self.device_data[serial][ATTR_MODE] = existing_mode
                     else:
-                        self.device_data[device_id].update(device_data)
+                        self.device_data[serial].update(device_data)
 
                     _LOGGER.info(
-                        "Updated device %s - Online: %s, Temp: %s, Target: %s, Function: %s, Heating: %s",
-                        device_id,
+                        "Updated device serial %s id: %s - Online: %s, Temp: %s, Target: %s, Function: %s, Heating: %s",
+                        serial,
+                        self.device_data[serial][ATTR_DEVICE_ID],
                         device_data.get(ATTR_ONLINE),
                         device_data.get(ATTR_TEMPERATURE),
                         device_data.get(ATTR_TARGET_TEMPERATURE),
