@@ -31,6 +31,7 @@ from .const import (
     ATTR_HUMIDITY,
     ATTR_TARGET_TEMPERATURE,
     ATTR_FUNCTION,
+    ATTR_MODE,
     ATTR_ONLINE,
     ATTR_RELAY_STATE,
 )
@@ -257,6 +258,13 @@ class WebSocketClient:
                     "Device %s function update: %s",
                     device_id,
                     relay["function"])
+                    
+            if "mode" in relay:
+                device_update[ATTR_MODE] = relay["mode"]
+                _LOGGER.debug(
+                    "Device %s mode update: %s",
+                    device_id,
+                    relay["mode"])
 
             if "manual_set_point" in relay:
                 device_update[ATTR_TARGET_TEMPERATURE] = relay["manual_set_point"]

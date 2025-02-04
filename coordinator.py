@@ -26,6 +26,7 @@ from .const import (
     ATTR_TARGET_TEMPERATURE,
     ATTR_ONLINE,
     ATTR_FUNCTION,
+    ATTR_MODE,
     ATTR_RELAY_STATE,
 )
 from .websocket import WebSocketClient
@@ -204,6 +205,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             ATTR_TEMPERATURE: None,
                             ATTR_TARGET_TEMPERATURE: None,
                             ATTR_FUNCTION: None,
+                            ATTR_MODE: None,
                             ATTR_RELAY_STATE: None,
                             ATTR_ONLINE: False,
                             "is_heating": False,
@@ -221,11 +223,15 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                         self.device_data[device_id]["sensors"] = device_data["sensors"]
                         self.device_data[device_id]["relays"] = device_data["relays"]
                     
-                    # Preserve existing function if not provided in update
+                    # Preserve existing function and mode if not provided in update
                     if device_data.get(ATTR_FUNCTION) is None and self.device_data[device_id].get(ATTR_FUNCTION) is not None:
                         existing_function = self.device_data[device_id][ATTR_FUNCTION]
                         self.device_data[device_id].update(device_data)
                         self.device_data[device_id][ATTR_FUNCTION] = existing_function
+                    elif device_data.get(ATTR_MODE) is None and self.device_data[device_id].get(ATTR_MODE) is not None:
+                        existing_mode = self.device_data[device_id][ATTR_MODE]
+                        self.device_data[device_id].update(device_data)
+                        self.device_data[device_id][ATTR_MODE] = existing_mode
                     else:
                         self.device_data[device_id].update(device_data)
 

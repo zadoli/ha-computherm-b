@@ -22,6 +22,15 @@
         }
     },
     "entity": {
+        "select": {
+            "mode": {
+                "name": "Mód",
+                "state": {
+                    "SCHEDULE": "Program",
+                    "MANUAL": "Kézi"
+                }
+            }
+        },
         "sensor": {
             "computherm_b": {
                 "name": "Hőmérséklet"

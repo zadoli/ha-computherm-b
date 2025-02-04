@@ -21,6 +21,7 @@ DEVICE_TYPE_BSERIES = DEVICE_TYPES["BSERIES"]
 
 # Device Identification Attributes
 ATTR_SERIAL_NUMBER = "serial_number"
+ATTR_DEVICE_ID = "id"  # API ID used for commands
 ATTR_DEVICE_TYPE = "device_type"
 ATTR_FW_VERSION = "fw_ver"
 ATTR_DEVICE_IP = "device_ip"
@@ -31,6 +32,7 @@ ATTR_TEMPERATURE = "temperature"
 ATTR_HUMIDITY = "humidity"
 ATTR_TARGET_TEMPERATURE = "target_temperature"
 ATTR_FUNCTION = "function"
+ATTR_MODE = "mode"
 ATTR_RELAY_STATE = "relay_state"
 ATTR_ONLINE = "online"
 
@@ -78,6 +80,11 @@ WS_RELAY_STATE_OFF = WS_EVENTS["RELAY_STATES"]["OFF"]
 
 # Default Values
 DEFAULT_SCAN_INTERVAL = 30  # seconds
+
+# Mode Values
+MODE_SCHEDULE = "SCHEDULE"
+MODE_MANUAL = "MANUAL"
+AVAILABLE_MODES = [MODE_SCHEDULE, MODE_MANUAL]
 
 # Feature Support
 SUPPORT_FLAGS = 0  # Base support flags, extended in climate.py
