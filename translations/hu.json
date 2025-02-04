@@ -29,6 +29,13 @@
                     "SCHEDULE": "Program",
                     "MANUAL": "Kézi"
                 }
+            },
+            "function": {
+                "name": "Funkció",
+                "state": {
+                    "HEATING": "Fűtés",
+                    "COOLING": "Hűtés"
+                }
             }
         },
         "sensor": {

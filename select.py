@@ -14,12 +14,16 @@ from .const import (
     DOMAIN,
     COORDINATOR,
     ATTR_MODE,
+    ATTR_FUNCTION,
     ATTR_DEVICE_TYPE,
     ATTR_FW_VERSION,
     ATTR_DEVICE_ID,
     MODE_SCHEDULE,
     MODE_MANUAL,
     AVAILABLE_MODES,
+    FUNCTION_HEATING,
+    FUNCTION_COOLING,
+    AVAILABLE_FUNCTIONS,
 )
 from .coordinator import ComputhermDataUpdateCoordinator
 
@@ -39,6 +43,7 @@ async def async_setup_entry(
     await coordinator.async_config_entry_first_refresh()
     
     existing_mode_entities = set()
+    existing_function_entities = set()
     
     @callback
     def _async_add_entities_for_device(device_id: str) -> None:
@@ -59,6 +64,13 @@ async def async_setup_entry(
             mode_entity = ComputhermModeSelect(coordinator, device_id)
             entities_to_add.append(mode_entity)
             existing_mode_entities.add(device_id)
+
+        # Add function select if not already added
+        if device_id not in existing_function_entities:
+            _LOGGER.info("Creating function select entity for device %s", device_id)
+            function_entity = ComputhermFunctionSelect(coordinator, device_id)
+            entities_to_add.append(function_entity)
+            existing_function_entities.add(device_id)
             
         if entities_to_add:
             async_add_entities(entities_to_add, True)
@@ -167,4 +179,89 @@ class ComputhermModeSelect(CoordinatorEntity, SelectEntity):
                         )
         except Exception as e:
             _LOGGER.error("Error changing mode for device %s (API ID: %s): %s", 
+                         self.serial_number, self.api_device_id, str(e))
+
+
+class ComputhermFunctionSelect(CoordinatorEntity, SelectEntity):
+    """Representation of a Computherm Function Select."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "function"
+    _attr_options = AVAILABLE_FUNCTIONS
+
+    def __init__(
+        self,
+        coordinator: ComputhermDataUpdateCoordinator,
+        serial: str,
+    ) -> None:
+        """Initialize the function select."""
+        super().__init__(coordinator)
+        self.serial_number = serial
+        # Get the API ID from devices dictionary
+        self.api_device_id = coordinator.devices[serial].get(ATTR_DEVICE_ID)
+        if not self.api_device_id:
+            _LOGGER.error("No API device ID found for serial number %s", serial)
+        
+        device_info = {
+            "identifiers": {(DOMAIN, serial)},
+            "serial_number": serial,
+            "name": f"Computherm {serial}",
+            "manufacturer": "Computherm",
+            "model": coordinator.devices[serial].get(ATTR_DEVICE_TYPE, "") or "B Series Thermostat",
+            "sw_version": coordinator.devices[serial].get(ATTR_FW_VERSION),
+            "hw_version": coordinator.devices[serial].get("type"),
+        }
+        self._attr_device_info = device_info
+        self._attr_unique_id = f"{DOMAIN}_{serial}_function"
+
+    @property
+    def device_data(self) -> dict:
+        """Get the current device data."""
+        return self.coordinator.device_data.get(self.serial_number, {})
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return self.device_data.get("online", False)
+
+    @property
+    def current_option(self) -> str | None:
+        """Return the current function."""
+        return self.device_data.get(ATTR_FUNCTION)
+
+    async def async_select_option(self, option: str) -> None:
+        """Change the selected option."""        
+        if not self.api_device_id:
+            _LOGGER.error("Cannot change function: No API device ID available for serial number %s", self.serial_number)
+            return
+
+        url = f"https://api.computhermbseries.com/api/devices/{self.api_device_id}/cmd"
+        payload = {
+            "relay": 1,
+            "function": f"{option}"
+        }
+
+        headers = {
+            "Authorization": f"Bearer {self.coordinator.auth_token}"
+        }
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload, headers=headers) as response:
+                    response_text = await response.text()
+                    
+                    if 200 <= response.status < 300:  # Any 2xx status code is success
+                        _LOGGER.info("Successfully changed function to %s for device %s (API ID: %s)", 
+                                   option, self.serial_number, self.api_device_id)
+                        await self.coordinator.async_request_refresh()
+                    else:
+                        _LOGGER.error(
+                            "Failed to change function for device %s (API ID: %s). Status: %s, Response: %s",
+                            self.serial_number,
+                            self.api_device_id,
+                            response.status,
+                            response_text
+                        )
+        except Exception as e:
+            _LOGGER.error("Error changing function for device %s (API ID: %s): %s", 
                          self.serial_number, self.api_device_id, str(e))
