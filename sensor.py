@@ -287,7 +287,7 @@ class ComputhermRSSISensor(ComputhermNumericSensorBase):
     _attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
     _attr_native_unit_of_measurement = "dB"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_icon = "mdi:wifi"
+    _attr_icon = "mdi:signal"
 
     def __init__(
         self,
@@ -317,7 +317,7 @@ class ComputhermRSSILevelSensor(ComputhermSensorBase):
     """Representation of a Computherm RSSI Level Sensor."""
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_icon = "mdi:wifi-strength"
+    _attr_icon = "mdi:signal"
 
     def __init__(
         self,
@@ -365,6 +365,11 @@ class ComputhermRelaySensor(CoordinatorEntity, BinarySensorEntity):
     _attr_device_class = BinarySensorDeviceClass.HEAT
     _attr_has_entity_name = True
     _attr_translation_key = DOMAIN
+
+    @property
+    def icon(self) -> str:
+        """Return the icon based on relay state."""
+        return "mdi:electric-switch-closed" if self.is_on else "mdi:electric-switch"
 
     def __init__(
         self,
