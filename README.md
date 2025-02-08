@@ -19,7 +19,7 @@ This is a Home Assistant integration for Computherm B Series WiFi thermostats. I
 2. Click on "Integrations"
 3. Click the three dots in the top right corner
 4. Select "Custom repositories"
-5. Add the URL of this repository
+5. Add `https://github.com/zadoli/ha-computherm-b`
 6. Select "Integration" as the category
 7. Click "Add"
 8. Find "Computherm B Series" in the integration list and click "Download"
@@ -27,7 +27,7 @@ This is a Home Assistant integration for Computherm B Series WiFi thermostats. I
 
 ### Manual Installation
 
-1. Copy the `computherm` folder to your `custom_components` directory
+1. Copy the `computherm_b` folder to your `custom_components` directory
 2. Restart Home Assistant
 
 ## Configuration
