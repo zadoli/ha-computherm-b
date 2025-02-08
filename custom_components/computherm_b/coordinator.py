@@ -236,7 +236,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     else:
                         self.device_data[serial].update(device_data)
 
-                    _LOGGER.info(
+                    _LOGGER.debug(
                         "Updated device serial %s id: %s - Online: %s, Temp: %s, Target: %s, Function: %s, Heating: %s",
                         serial,
                         self.device_data[serial][ATTR_DEVICE_ID],
