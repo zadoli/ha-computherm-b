@@ -1,0 +1,5 @@
+aiohttp~=3.8.5
+homeassistant~=2023.7.3
+async-timeout~=4.0.2
+voluptuous~=0.13.1
+websockets~=14.2

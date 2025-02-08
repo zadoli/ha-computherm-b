@@ -1,7 +1,6 @@
 """Sensor platform for Computherm integration."""
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from homeassistant.components.sensor import (
@@ -158,7 +157,6 @@ class ComputhermSensorBase(CoordinatorEntity, SensorEntity):
     """Base class for Computherm sensors."""
 
     _attr_has_entity_name = True
-    _attr_translation_key = DOMAIN
 
     def __init__(
         self,
@@ -203,6 +201,7 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
     """Representation of a Computherm Temperature Sensor."""
 
     _attr_device_class = SensorDeviceClass.TEMPERATURE
+    _attr_translation_key = "temperature"
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
     _attr_icon = "mdi:thermometer"
 
@@ -229,16 +228,19 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
         else:
             sensor_id = str(device_data['available_sensor_ids'][0])
             entity_name = device_data["sensors"][sensor_id].get("name", "temperature")
+
             if "temperature" not in entity_name:
+                self._attr_translation_placeholders = {"custom_name": entity_name}
                 entity_name += " temperature"
+            else:
+                self._attr_name = entity_name
                 
         self._attr_unique_id = f"{DOMAIN}_{serial}_{entity_name}"
-        self._attr_name = entity_name
         
         _LOGGER.info(
             "Temperature entity initialized - ID: %s, Name: %s",
             self._attr_unique_id,
-            self._attr_name
+            entity_name
         )
 
     @property
@@ -253,6 +255,7 @@ class ComputhermBatterySensor(ComputhermNumericSensorBase):
     """Representation of a Computherm Battery Sensor."""
 
     _attr_device_class = SensorDeviceClass.BATTERY
+    _attr_translation_key = "battery"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:battery"
@@ -266,7 +269,6 @@ class ComputhermBatterySensor(ComputhermNumericSensorBase):
         """Initialize the battery sensor."""
         super().__init__(hass, coordinator, serial)
         self._attr_unique_id = f"{DOMAIN}_{serial}_battery"
-        self._attr_name = "Battery"
 
     @property
     def native_value(self) -> float | None:
@@ -285,6 +287,7 @@ class ComputhermRSSISensor(ComputhermNumericSensorBase):
     """Representation of a Computherm RSSI Sensor."""
 
     _attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
+    _attr_translation_key = "rssi"
     _attr_native_unit_of_measurement = "dB"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:signal"
@@ -298,7 +301,6 @@ class ComputhermRSSISensor(ComputhermNumericSensorBase):
         """Initialize the RSSI sensor."""
         super().__init__(hass, coordinator, serial)
         self._attr_unique_id = f"{DOMAIN}_{serial}_rssi"
-        self._attr_name = "RSSI"
 
     @property
     def native_value(self) -> float | None:
@@ -317,6 +319,7 @@ class ComputhermRSSILevelSensor(ComputhermSensorBase):
     """Representation of a Computherm RSSI Level Sensor."""
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_translation_key = "rssi_level"
     _attr_icon = "mdi:signal"
 
     def __init__(
@@ -328,7 +331,6 @@ class ComputhermRSSILevelSensor(ComputhermSensorBase):
         """Initialize the RSSI level sensor."""
         super().__init__(hass, coordinator, serial)
         self._attr_unique_id = f"{DOMAIN}_{serial}_rssi_level"
-        self._attr_name = "RSSI Level"
 
     @property
     def native_value(self) -> str | None:
@@ -340,6 +342,7 @@ class ComputhermSourceSensor(ComputhermSensorBase):
     """Representation of a Computherm Source Sensor."""
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_translation_key = "source"
     _attr_icon = "mdi:connection"
 
     def __init__(
@@ -351,7 +354,6 @@ class ComputhermSourceSensor(ComputhermSensorBase):
         """Initialize the source sensor."""
         super().__init__(hass, coordinator, serial)
         self._attr_unique_id = f"{DOMAIN}_{serial}_source"
-        self._attr_name = "Source"
 
     @property
     def native_value(self) -> str | None:
@@ -362,14 +364,7 @@ class ComputhermSourceSensor(ComputhermSensorBase):
 class ComputhermRelaySensor(CoordinatorEntity, BinarySensorEntity):
     """Representation of a Computherm Relay Binary Sensor."""
 
-    _attr_device_class = BinarySensorDeviceClass.HEAT
-    _attr_has_entity_name = True
-    _attr_translation_key = DOMAIN
-
-    @property
-    def icon(self) -> str:
-        """Return the icon based on relay state."""
-        return "mdi:electric-switch-closed" if self.is_on else "mdi:electric-switch"
+    _attr_device_class = BinarySensorDeviceClass.RUNNING
 
     def __init__(
         self,
@@ -392,21 +387,16 @@ class ComputhermRelaySensor(CoordinatorEntity, BinarySensorEntity):
         }
         self._attr_device_info = device_info
 
-        device_data = coordinator.device_data.get(serial, {})
-
         _LOGGER.info(
-            "Initializing relay sensor with device data: %s",
-            device_data
+            "Initializing relay sensor with device info: %s",
+            device_info
         )
 
-        entity_name = "relay"
-        self._attr_unique_id = f"{DOMAIN}_{serial}_{entity_name}"
-        self._attr_name = entity_name
+        self._attr_unique_id = f"{DOMAIN}_{serial}_relay"
         
         _LOGGER.info(
-            "Relay entity initialized - ID: %s, Name: %s",
+            "Relay entity initialized - ID: %s",
             self._attr_unique_id,
-            self._attr_name
         )
 
     @property
@@ -427,6 +417,13 @@ class ComputhermRelaySensor(CoordinatorEntity, BinarySensorEntity):
             return relay_state
         return None
 
+    @property
+    def icon(self) -> str:
+        """Return the icon to use for the relay."""
+        if self.is_on is False:  # Explicitly check for False to handle None case
+            return "mdi:electric-switch"
+        return "mdi:electric-switch-closed"
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
@@ -442,6 +439,7 @@ class ComputhermHumiditySensor(ComputhermNumericSensorBase):
     """Representation of a Computherm Humidity Sensor."""
 
     _attr_device_class = SensorDeviceClass.HUMIDITY
+    _attr_translation_key = "humidity"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_icon = "mdi:water-percent"
 
@@ -461,23 +459,26 @@ class ComputhermHumiditySensor(ComputhermNumericSensorBase):
             device_data
         )
 
-        # Set unique ID and device info       
+        # Set unique ID and device info
         if not device_data or 'available_sensor_ids' not in device_data:
             _LOGGER.error("Device %s has no sensor data available", serial)
             entity_name = "humidity"
         else:
             sensor_id = str(device_data['available_sensor_ids'][0])
             entity_name = device_data["sensors"][sensor_id].get("name", "humidity")
+
             if "humidity" not in entity_name:
+                self._attr_translation_placeholders = {"custom_name": entity_name}
                 entity_name += " humidity"
-            
+            else:
+                self._attr_name = entity_name
+
         self._attr_unique_id = f"{DOMAIN}_{serial}_{entity_name}"
-        self._attr_name = entity_name
-        
+
         _LOGGER.info(
             "Humidity entity initialized - ID: %s, Name: %s",
             self._attr_unique_id,
-            self._attr_name
+            entity_name
         )
 
     @property

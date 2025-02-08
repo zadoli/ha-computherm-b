@@ -40,8 +40,31 @@
             }
         },
         "sensor": {
-            "computherm_b": {
-                "name": "Hőmérséklet"
+            "temperature": {
+                "name": "{custom_name} hőmérséklet"
+            },
+            "humidity": {
+                "name": "{custom_name} páratartalom"
+            },
+            "rssi_level": {
+                "name": "Jelszint",
+                "state": {
+                    "WEAK": "Gyenge",
+                    "AVERAGE": "Átlagos",
+                    "STRONG": "Erős"
+                }
+            },
+            "source": {
+                "name": "Forrás",
+                "state": {
+                    "RELAY": "Relé",
+                    "REMOTE": "Vezetéknélküli érzékelő"
+                }
+            }
+        },
+        "binary_sensor": {
+            "relay": {
+                "name": "Relé"
             }
         },
         "climate": {

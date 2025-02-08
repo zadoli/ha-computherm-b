@@ -18,8 +18,31 @@
             }
         },
         "sensor": {
-            "computherm_b": {
-                "name": "Temperature"
+            "temperature": {
+                "name": "{custom_name} temperature"
+            },
+            "humidity": {
+                "name": "{custom_name} humidity"
+            },
+            "rssi_level": {
+                "name": "Signal level",
+                "state": {
+                    "WEAK": "Weak",
+                    "AVERAGE": "Average",
+                    "STRONG": "Strong"
+                }
+            },
+            "source": {
+                "name": "Source",
+                "state": {
+                    "RELAY": "Relay",
+                    "REMOTE": "Remote sensor"
+                }
+            }
+        },
+        "binary_sensor": {
+            "relay": {
+                "name": "Relay"
             }
         },
         "climate": {
