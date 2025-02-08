@@ -1,8 +1,4 @@
 {
   "name": "Computherm B Series",
-  "render_readme": true,
-  "domain": "computherm_b",
-  "documentation": "https://github.com/zadoli/ha-computherm-b",
-  "issue_tracker": "https://github.com/zadoli/ha-computherm-b/issues",
-  "homeassistant": "2023.8.0"
+  "render_readme": true
 }
