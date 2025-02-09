@@ -23,9 +23,8 @@ DEVICE_TYPE_BSERIES: Final[str] = DEVICE_TYPES["BSERIES"]
 
 # Device Attributes
 class DeviceAttributes:
-
-
     """Device attribute constants."""
+
     # Identification
     SERIAL_NUMBER: Final[str] = "serial_number"
     DEVICE_ID: Final[str] = "id"  # API ID used for commands
@@ -72,9 +71,8 @@ ATTR_SOURCE = DeviceAttributes.SOURCE
 
 # WebSocket Configuration
 class WebSocketConfig:
-
-
     """WebSocket configuration constants."""
+
     BASE_URL: Final[str] = "wss://api.computhermbseries.com/socket.io/?EIO=4&transport=websocket"
     PING_MESSAGE: Final[str] = "3"  # Socket.IO ping message
     MESSAGE_TEMPLATES: Final[Dict[str, str]] = {
