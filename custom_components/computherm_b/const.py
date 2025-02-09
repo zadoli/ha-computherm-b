@@ -81,8 +81,8 @@ class WebSocketConfig:
         "SCAN": '42/devices,["cmd","{{\\"serial_number\\":\\"{device_id}\\",'
                 '\\"cmd\\":\\"scan\\"}}"]',
     }
-    
-    # Event Types
+
+
     class Events:
         """WebSocket event type constants."""
         TEMPERATURE: Final[str] = "TEMPERATURE"
