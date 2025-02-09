@@ -20,8 +20,11 @@ DEVICE_TYPES: Final[Dict[str, str]] = {
 DEVICE_TYPE_BBOIL: Final[str] = DEVICE_TYPES["BBOIL"]
 DEVICE_TYPE_BSERIES: Final[str] = DEVICE_TYPES["BSERIES"]
 
+
 # Device Attributes
 class DeviceAttributes:
+
+
     """Device attribute constants."""
     # Identification
     SERIAL_NUMBER: Final[str] = "serial_number"
@@ -46,6 +49,7 @@ class DeviceAttributes:
     RSSI_LEVEL: Final[str] = "rssi_level"
     SOURCE: Final[str] = "src"
 
+
 # For backward compatibility
 ATTR_SERIAL_NUMBER = DeviceAttributes.SERIAL_NUMBER
 ATTR_DEVICE_ID = DeviceAttributes.DEVICE_ID
@@ -65,8 +69,11 @@ ATTR_RSSI = DeviceAttributes.RSSI
 ATTR_RSSI_LEVEL = DeviceAttributes.RSSI_LEVEL
 ATTR_SOURCE = DeviceAttributes.SOURCE
 
+
 # WebSocket Configuration
 class WebSocketConfig:
+
+
     """WebSocket configuration constants."""
     BASE_URL: Final[str] = "wss://api.computhermbseries.com/socket.io/?EIO=4&transport=websocket"
     PING_MESSAGE: Final[str] = "3"  # Socket.IO ping message
@@ -87,6 +94,7 @@ class WebSocketConfig:
             "ON": "ON",
             "OFF": "OFF",
         }
+
 
 # Operation Modes and Functions
 MODE_SCHEDULE: Final[str] = "schedule"
