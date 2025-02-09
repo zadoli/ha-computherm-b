@@ -30,19 +30,21 @@ from .coordinator import ComputhermDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__package__)
 
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the Computherm temperature sensors."""
-    coordinator: ComputhermDataUpdateCoordinator = hass.data[DOMAIN][config_entry.entry_id][COORDINATOR]
-    
+    coordinator: ComputhermDataUpdateCoordinator = hass.data[
+        DOMAIN][config_entry.entry_id][COORDINATOR]
+
     _LOGGER.info("Setting up Computherm sensor platform")
-    
+
     # Wait for devices to be fetched
     await coordinator.async_config_entry_first_refresh()
-    
+
     # Track entities we've already added
     existing_entities = {
         "temperature": set(),
@@ -53,7 +55,7 @@ async def async_setup_entry(
         "rssi_level": set(),
         "source": set(),
     }
-    
+
     @callback
     def _async_add_entities_for_device(device_id: str) -> None:
         """Create and add entities for a device that has received base_info."""
@@ -66,42 +68,56 @@ async def async_setup_entry(
             return
 
         entities_to_add = []
-        
+
         # Add core sensors
-        _add_core_sensors(coordinator, device_id, device_data, entities_to_add, existing_entities)
-        
+        _add_core_sensors(
+            coordinator,
+            device_id,
+            device_data,
+            entities_to_add,
+            existing_entities)
+
         # Add diagnostic sensors
-        _add_diagnostic_sensors(coordinator, device_id, device_data, entities_to_add, existing_entities)
-            
+        _add_diagnostic_sensors(
+            coordinator,
+            device_id,
+            device_data,
+            entities_to_add,
+            existing_entities)
+
         if entities_to_add:
             async_add_entities(entities_to_add, True)
             _LOGGER.info("Sensor entities created for device %s", device_id)
-    
+
     # Add entities for devices that already have base_info
     for serial in coordinator.devices:
         if _is_device_ready(coordinator, serial):
             _LOGGER.info("Found existing base_info for device %s", serial)
             _async_add_entities_for_device(serial)
-    
+
     # Register listener for coordinator updates
     config_entry.async_on_unload(
         coordinator.async_add_listener(
-            lambda: async_handle_coordinator_update(coordinator, _async_add_entities_for_device)
-        )
-    )
+            lambda: async_handle_coordinator_update(
+                coordinator,
+                _async_add_entities_for_device)))
     _LOGGER.info("Sensor platform setup completed")
 
-def _is_device_ready(coordinator: ComputhermDataUpdateCoordinator, device_id: str) -> bool:
+
+def _is_device_ready(
+        coordinator: ComputhermDataUpdateCoordinator,
+        device_id: str) -> bool:
     """Check if device is ready for entity creation."""
     if device_id not in coordinator.devices_with_base_info:
         _LOGGER.debug("Device %s has no base_info yet", device_id)
         return False
-        
+
     if not coordinator.devices_with_base_info[device_id]:
         _LOGGER.debug("Device %s has empty base_info", device_id)
         return False
-        
+
     return True
+
 
 def _add_core_sensors(
     coordinator: ComputhermDataUpdateCoordinator,
@@ -113,21 +129,32 @@ def _add_core_sensors(
     """Add core sensor entities."""
     # Add temperature sensor
     if device_id not in existing_entities["temperature"]:
-        _LOGGER.info("Creating temperature sensor entity for device %s", device_id)
-        entities_to_add.append(ComputhermTemperatureSensor(coordinator, device_id))
+        _LOGGER.info(
+            "Creating temperature sensor entity for device %s",
+            device_id)
+        entities_to_add.append(
+            ComputhermTemperatureSensor(
+                coordinator, device_id))
         existing_entities["temperature"].add(device_id)
-        
+
     # Add humidity sensor if device has humidity readings
     if device_id not in existing_entities["humidity"] and DA.HUMIDITY in device_data:
-        _LOGGER.info("Creating humidity sensor entity for device %s", device_id)
-        entities_to_add.append(ComputhermHumiditySensor(coordinator, device_id))
+        _LOGGER.info(
+            "Creating humidity sensor entity for device %s",
+            device_id)
+        entities_to_add.append(
+            ComputhermHumiditySensor(
+                coordinator, device_id))
         existing_entities["humidity"].add(device_id)
 
     # Add relay binary sensor
     if device_id not in existing_entities["relay"]:
-        _LOGGER.info("Creating relay binary sensor entity for device %s", device_id)
+        _LOGGER.info(
+            "Creating relay binary sensor entity for device %s",
+            device_id)
         entities_to_add.append(ComputhermRelaySensor(coordinator, device_id))
         existing_entities["relay"].add(device_id)
+
 
 def _add_diagnostic_sensors(
     coordinator: ComputhermDataUpdateCoordinator,
@@ -150,6 +177,7 @@ def _add_diagnostic_sensors(
             entities_to_add.append(sensor_class(coordinator, device_id))
             existing_entities[key].add(device_id)
 
+
 @callback
 def async_handle_coordinator_update(
     coordinator: ComputhermDataUpdateCoordinator,
@@ -157,8 +185,10 @@ def async_handle_coordinator_update(
 ) -> None:
     """Handle updated data from the coordinator."""
     for device_id in coordinator.devices:
-        if device_id in coordinator.devices_with_base_info and coordinator.devices_with_base_info[device_id]:
+        if device_id in coordinator.devices_with_base_info and coordinator.devices_with_base_info[
+                device_id]:
             add_entities_callback(device_id)
+
 
 class ComputhermSensorBase(CoordinatorEntity):
     """Base class for Computherm sensors."""
@@ -196,13 +226,15 @@ class ComputhermSensorBase(CoordinatorEntity):
         """Set up entity information."""
         device_data = self.coordinator.device_data.get(self.device_id, {})
         if not device_data or 'available_sensor_ids' not in device_data:
-            _LOGGER.error("Device %s has no sensor data available", self.device_id)
+            _LOGGER.error(
+                "Device %s has no sensor data available",
+                self.device_id)
             entity_name = self._get_default_name()
         else:
             entity_name = self._get_entity_name(device_data)
 
         self._attr_unique_id = f"{DOMAIN}_{self.device_id}_{entity_name}"
-        
+
         _LOGGER.info(
             "Entity initialized - ID: %s, Name: %s",
             self._attr_unique_id,
@@ -216,7 +248,8 @@ class ComputhermSensorBase(CoordinatorEntity):
     def _get_entity_name(self, device_data: dict) -> str:
         """Get entity name from device data."""
         sensor_id = str(device_data['available_sensor_ids'][0])
-        base_name = device_data["sensors"][sensor_id].get("name", self._get_default_name())
+        base_name = device_data["sensors"][sensor_id].get(
+            "name", self._get_default_name())
         return self._process_entity_name(base_name)
 
     def _process_entity_name(self, base_name: str) -> str:
@@ -233,10 +266,12 @@ class ComputhermSensorBase(CoordinatorEntity):
         """Return if entity is available."""
         return self.device_data.get(DA.ONLINE, False)
 
+
 class ComputhermNumericSensorBase(ComputhermSensorBase, SensorEntity):
     """Base class for numeric Computherm sensors."""
 
     _attr_state_class = SensorStateClass.MEASUREMENT
+
 
 class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
     """Representation of a Computherm Temperature Sensor."""
@@ -261,6 +296,7 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
             return float(self.device_data[DA.TEMPERATURE])
         return None
 
+
 class ComputhermHumiditySensor(ComputhermNumericSensorBase):
     """Representation of a Computherm Humidity Sensor."""
 
@@ -284,10 +320,12 @@ class ComputhermHumiditySensor(ComputhermNumericSensorBase):
             return float(self.device_data[DA.HUMIDITY])
         return None
 
+
 class ComputhermDiagnosticSensorBase(ComputhermNumericSensorBase):
     """Base class for diagnostic sensors."""
 
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+
 
 class ComputhermBatterySensor(ComputhermDiagnosticSensorBase):
     """Representation of a Computherm Battery Sensor."""
@@ -312,6 +350,7 @@ class ComputhermBatterySensor(ComputhermDiagnosticSensorBase):
                 return None
         return None
 
+
 class ComputhermRSSISensor(ComputhermDiagnosticSensorBase):
     """Representation of a Computherm RSSI Sensor."""
 
@@ -335,6 +374,7 @@ class ComputhermRSSISensor(ComputhermDiagnosticSensorBase):
                 return None
         return None
 
+
 class ComputhermRSSILevelSensor(ComputhermSensorBase, SensorEntity):
     """Representation of a Computherm RSSI Level Sensor."""
 
@@ -351,6 +391,7 @@ class ComputhermRSSILevelSensor(ComputhermSensorBase, SensorEntity):
         """Return the RSSI level."""
         return self.device_data.get(DA.RSSI_LEVEL)
 
+
 class ComputhermSourceSensor(ComputhermSensorBase, SensorEntity):
     """Representation of a Computherm Source Sensor."""
 
@@ -366,6 +407,7 @@ class ComputhermSourceSensor(ComputhermSensorBase, SensorEntity):
     def native_value(self) -> str | None:
         """Return the source value."""
         return self.device_data.get(DA.SOURCE)
+
 
 class ComputhermRelaySensor(ComputhermSensorBase, BinarySensorEntity):
     """Representation of a Computherm Relay Binary Sensor."""

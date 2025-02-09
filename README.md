@@ -1,6 +1,9 @@
 # Computherm B Series Integration for Home Assistant
+[![Code Quality Checks](https://github.com/zadoli/ha-computherm-b/actions/workflows/checks.yaml/badge.svg)](https://github.com/zadoli/ha-computherm-b/actions/workflows/checks.yaml)
+[![Validate with hassfest](https://github.com/zadoli/ha-computherm-b/actions/workflows/hassfest.yaml/badge.svg)](https://github.com/zadoli/ha-computherm-b/actions/workflows/hassfest.yaml)
+[![HACS Action](https://github.com/zadoli/ha-computherm-b/actions/workflows/hacs.yaml/badge.svg)](https://github.com/zadoli/ha-computherm-b/actions/workflows/hacs.yaml)
 
-This is a Home Assistant integration for Computherm B Series WiFi thermostats. It provides control and monitoring capabilities through the official Computherm B Series cloud API.
+Home Assistant integration for Computherm B Series WiFi thermostats. It provides control and monitoring capabilities through the official Computherm B Series cloud API.
 
 ## Features
 
@@ -14,7 +17,7 @@ This is a Home Assistant integration for Computherm B Series WiFi thermostats. I
 
 ## Installation
 
-### HACS Installation (CURRENTLY NOT AVAILABLE)
+### HACS Installation
 
 1. Open HACS in your Home Assistant instance
 2. Click on "Integrations"

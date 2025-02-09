@@ -23,22 +23,25 @@ _LOGGER = logging.getLogger(__package__)
 SSL_CONTEXT: Final = ssl.create_default_context()
 SSL_CONTEXT.load_default_certs()
 
+
 class WebSocketMessageHandler:
     """Handle WebSocket message parsing and processing."""
 
     @staticmethod
-    def _process_readings(readings: List[Dict[str, Any]], serial: str, device_update: Dict[str, Any]) -> None:
+    def _process_readings(
+            readings: List[Dict[str, Any]], serial: str, device_update: Dict[str, Any]) -> None:
         """Process temperature and humidity readings and update device state."""
         for reading in readings:
             if "reading" not in reading:
                 continue
-                
+
             # Add common sensor attributes if present
             for attr in ["battery", "rssi", "rssi_level", "src"]:
                 if attr in reading:
                     # Convert rssi_level and src to lowercase
                     if attr in ["rssi_level", "src"]:
-                        device_update[attr] = str(reading[attr]).lower() if reading[attr] is not None else None
+                        device_update[attr] = str(
+                            reading[attr]).lower() if reading[attr] is not None else None
                     else:
                         device_update[attr] = reading[attr]
                     _LOGGER.debug(
@@ -47,7 +50,7 @@ class WebSocketMessageHandler:
                         attr,
                         device_update[attr]
                     )
-                
+
             if reading["type"] == WSC.Events.TEMPERATURE:
                 device_update[DA.TEMPERATURE] = reading["reading"]
                 _LOGGER.debug(
@@ -71,32 +74,38 @@ class WebSocketMessageHandler:
                 )
 
     @staticmethod
-    def _process_relays(relays: List[Dict[str, Any]], serial: str, device_update: Dict[str, Any]) -> None:
+    def _process_relays(
+            relays: List[Dict[str, Any]], serial: str, device_update: Dict[str, Any]) -> None:
         """Process relay states and update device state."""
         _LOGGER.debug("Processing relays for device %s: %s", serial, relays)
         for relay in relays:
-            _LOGGER.debug("Processing relay update for device %s: %s", serial, relay)
+            _LOGGER.debug(
+                "Processing relay update for device %s: %s",
+                serial,
+                relay)
             if "relay_state" in relay:
                 relay_state = relay[DA.RELAY_STATE] == WSC.Events.RELAY_STATES["ON"]
                 device_update[DA.RELAY_STATE] = relay_state
-                device_update["is_heating"] = relay_state  # Keep is_heating for backward compatibility
+                # Keep is_heating for backward compatibility
+                device_update["is_heating"] = relay_state
                 _LOGGER.debug(
                     "Device %s relay state update: %s (relay_state: %s, is_heating: %s)",
                     serial,
                     "ON" if relay_state else "OFF",
                     relay_state,
-                    relay_state
-                )
+                    relay_state)
             if "function" in relay:
-                function_value = str(relay[DA.FUNCTION]).lower() if relay[DA.FUNCTION] is not None else None
+                function_value = str(relay[DA.FUNCTION]).lower(
+                ) if relay[DA.FUNCTION] is not None else None
                 device_update[DA.FUNCTION] = function_value
                 _LOGGER.debug(
                     "Device %s function update: %s",
                     serial,
                     function_value)
-                    
+
             if "mode" in relay:
-                mode_value = str(relay["mode"]).lower() if relay["mode"] is not None else None
+                mode_value = str(relay["mode"]).lower(
+                ) if relay["mode"] is not None else None
                 device_update[DA.MODE] = mode_value
                 _LOGGER.debug(
                     "Device %s mode update: %s",
@@ -112,11 +121,12 @@ class WebSocketMessageHandler:
                 )
 
     @staticmethod
-    def process_base_info(event_data: Dict[str, Any], serial: str) -> Dict[str, Any]:
+    def process_base_info(
+            event_data: Dict[str, Any], serial: str) -> Dict[str, Any]:
         """Process base_info event data."""
         relay_array = event_data.get("relays", [])
         reading_array = event_data.get("readings", [])
-        
+
         sensors = {
             str(reading["sensor"]): {
                 "id": reading["id"],
@@ -126,15 +136,15 @@ class WebSocketMessageHandler:
                 "name": reading["name"]
             } for reading in reading_array
         }
-        
+
         relays = {
             str(relay["relay"]): relay for relay in relay_array
         }
-        
+
         # Extract available reading and relay identifiers
         sensor_ids = [str(reading["sensor"]) for reading in reading_array]
         relay_ids = [str(relay["relay"]) for relay in relay_array]
-        
+
         device_update = {
             DA.ONLINE: event_data.get(DA.ONLINE, False),
             "base_info": event_data["base_info"],
@@ -143,8 +153,12 @@ class WebSocketMessageHandler:
             "sensors": sensors,
             "relays": relays,
         }
-        _LOGGER.info("Updated device %s with device_update: %s", serial, device_update)
+        _LOGGER.info(
+            "Updated device %s with device_update: %s",
+            serial,
+            device_update)
         return device_update
+
 
 class WebSocketClient:
     """WebSocket client for handling real-time device updates."""
@@ -168,7 +182,8 @@ class WebSocketClient:
         self._max_reconnect_interval: Final[float] = 300  # Max 5 minutes
         self._last_ping_time: Optional[datetime] = None
         self._stopping: bool = False
-        self._connecting: bool = False  # Flag to prevent multiple simultaneous connection attempts
+        # Flag to prevent multiple simultaneous connection attempts
+        self._connecting: bool = False
         self._message_handler = WebSocketMessageHandler()
 
     async def start(self) -> None:
@@ -176,7 +191,7 @@ class WebSocketClient:
         if self._connecting:
             _LOGGER.debug("Connection attempt already in progress")
             return
-            
+
         self._stopping = False
         self._connecting = True
         try:
@@ -275,7 +290,8 @@ class WebSocketClient:
     async def _setup_connection(self) -> None:
         """Set up the connection with login and subscriptions."""
         # Send login message
-        login_message = WSC.MESSAGE_TEMPLATES["LOGIN"].format(access_token=self.auth_token)
+        login_message = WSC.MESSAGE_TEMPLATES["LOGIN"].format(
+            access_token=self.auth_token)
         await self.websocket.send(login_message)
         response = await self.websocket.recv()
         _LOGGER.info("Login response received: %s", response)
@@ -286,10 +302,11 @@ class WebSocketClient:
 
         # Subscribe to all devices in a single message
         device_serials_json = json.dumps(self.device_serials)
-        subscribe_msg = WSC.MESSAGE_TEMPLATES["SUBSCRIBE"].format(device_ids=device_serials_json)
+        subscribe_msg = WSC.MESSAGE_TEMPLATES["SUBSCRIBE"].format(
+            device_ids=device_serials_json)
         await self.websocket.send(subscribe_msg)
         _LOGGER.info("Subscribed to devices: %s", self.device_serials)
-        
+
         # Request properties for each device
         for serial in self.device_serials:
             scan_msg = WSC.MESSAGE_TEMPLATES["SCAN"].format(device_id=serial)
@@ -313,7 +330,9 @@ class WebSocketClient:
                 await asyncio.sleep(self._ping_interval)
 
                 # Check if we've missed too many pings
-                if (datetime.now() - self._last_ping_time) > timedelta(seconds=self._ping_interval * 3):
+                if (datetime.now() -
+                    self._last_ping_time) > timedelta(seconds=self._ping_interval *
+                                                      3):
                     _LOGGER.warning("Missed too many pings, reconnecting...")
                     if self.websocket:
                         await self.websocket.close()
@@ -343,12 +362,18 @@ class WebSocketClient:
             # Handle error responses
             if data[0] == "exception":
                 error_data = data[1]
-                _LOGGER.error("WebSocket error response: %s (Code: %s, Full data: %s)", 
-                             error_data.get("message"), error_data.get("code"), error_data)
+                _LOGGER.error(
+                    "WebSocket error response: %s (Code: %s, Full data: %s)",
+                    error_data.get("message"),
+                    error_data.get("code"),
+                    error_data)
                 return
-                
+
             if data[0] != "event":
-                _LOGGER.debug("Received non-event message - Type: %s, Data: %s", data[0], data[1])
+                _LOGGER.debug(
+                    "Received non-event message - Type: %s, Data: %s",
+                    data[0],
+                    data[1])
                 return
 
             event_data = data[1]
@@ -360,18 +385,22 @@ class WebSocketClient:
                 _LOGGER.info("Received base_info event: %s", event_data)
                 serial = event_data["base_info"].get(DA.SERIAL_NUMBER)
                 if not serial:
-                    _LOGGER.warning("base_info missing serial_number: %s", event_data)
+                    _LOGGER.warning(
+                        "base_info missing serial_number: %s", event_data)
                     return
                 if serial not in self.device_serials:
-                    _LOGGER.warning("Received base_info for unknown device: %s", serial)
+                    _LOGGER.warning(
+                        "Received base_info for unknown device: %s", serial)
                     return
-                
-                device_update = self._message_handler.process_base_info(event_data, serial)
+
+                device_update = self._message_handler.process_base_info(
+                    event_data, serial)
             else:
                 # Handle regular updates
                 serial = event_data.get(DA.SERIAL_NUMBER)
                 if not serial or serial not in self.device_serials:
-                    _LOGGER.warning("Invalid or unknown device serial in update: %s", serial)
+                    _LOGGER.warning(
+                        "Invalid or unknown device serial in update: %s", serial)
                     return
                 device_update = {
                     DA.ONLINE: event_data.get(DA.ONLINE, False)
@@ -379,7 +408,8 @@ class WebSocketClient:
 
             # Process readings and relays
             if "readings" in event_data:
-                self._message_handler._process_readings(event_data["readings"], serial, device_update)
+                self._message_handler._process_readings(
+                    event_data["readings"], serial, device_update)
 
             if "relays" in event_data:
                 _LOGGER.debug(
@@ -387,14 +417,14 @@ class WebSocketClient:
                     serial,
                     event_data["relays"]
                 )
-                self._message_handler._process_relays(event_data["relays"], serial, device_update)
+                self._message_handler._process_relays(
+                    event_data["relays"], serial, device_update)
 
             _LOGGER.debug(
                 "Device %s %s: %s",
                 serial,
                 "base_info and state update" if "base_info" in event_data else "update",
-                device_update
-            )
+                device_update)
 
             # Notify callback with the update
             self.data_callback({serial: device_update})

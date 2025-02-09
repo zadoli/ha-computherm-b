@@ -26,17 +26,19 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     }
 )
 
-async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
+
+async def validate_input(
+        hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect."""
     session = async_get_clientsession(hass)
 
     try:
         login_payload = {
             "email": data["username"],
-            "password": data["password"]         
+            "password": data["password"]
         }
         _LOGGER.debug("Attempting to authenticate with Computherm API")
-        
+
         timeout = ClientTimeout(total=30)
         async with session.post(
             f"{API_BASE_URL}{API_LOGIN_ENDPOINT}",
@@ -46,13 +48,13 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
             if response.status == 401:
                 _LOGGER.error("Authentication failed: Invalid credentials")
                 raise InvalidAuth("Invalid email or password")
-            
+
             try:
                 response.raise_for_status()
             except aiohttp.ClientResponseError as err:
                 _LOGGER.error("HTTP error occurred: %s", err)
                 raise CannotConnect(f"HTTP error: {err.status}") from err
-            
+
             try:
                 result = await response.json()
             except ValueError as err:
@@ -82,6 +84,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         _LOGGER.exception("Unexpected error occurred during validation")
         raise UnknownError("Unexpected error occurred") from error
 
+
 class ComputhermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Computherm."""
 
@@ -101,7 +104,8 @@ class ComputhermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 info = await validate_input(self.hass, user_input)
                 _LOGGER.debug("Configuration validation successful")
-                return self.async_create_entry(title=info["title"], data=user_input)
+                return self.async_create_entry(
+                    title=info["title"], data=user_input)
 
             except CannotConnect as error:
                 _LOGGER.error("Connection failed: %s", error)
@@ -123,11 +127,14 @@ class ComputhermConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
+
 class CannotConnect(HomeAssistantError):
     """Error to indicate we cannot connect."""
 
+
 class InvalidAuth(HomeAssistantError):
     """Error to indicate there is invalid auth."""
+
 
 class UnknownError(HomeAssistantError):
     """Error to indicate there is an unknown error."""

@@ -25,14 +25,18 @@ from .websocket import WebSocketClient
 
 _LOGGER = logging.getLogger(__package__)
 
+
 class ComputhermError(Exception):
     """Base class for Computherm integration errors."""
+
 
 class ComputhermConnectionError(ComputhermError):
     """Error occurred while communicating with the API."""
 
+
 class ComputhermAuthError(ComputhermError):
     """Authentication error occurred."""
+
 
 class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
     """Class to manage fetching Computherm data."""
@@ -56,7 +60,8 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         self.auth_token: Optional[str] = None
         self.devices: Dict[str, Dict[str, Any]] = {}
         self.device_data: Dict[str, Dict[str, Any]] = {}
-        self.devices_with_base_info: Dict[str, Dict[str, Any]] = {}  # Track devices that have received base_info
+        # Track devices that have received base_info
+        self.devices_with_base_info: Dict[str, Dict[str, Any]] = {}
         self._ws_client: Optional[WebSocketClient] = None
         _LOGGER.info("Initialized ComputhermDataUpdateCoordinator")
 
@@ -70,7 +75,8 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 await self._setup_websocket()
                 _LOGGER.info("Initial setup completed successfully")
             elif self._ws_client and not self._ws_client.websocket:
-                # Only attempt reconnect if we have a client but lost connection
+                # Only attempt reconnect if we have a client but lost
+                # connection
                 _LOGGER.info("WebSocket disconnected, attempting reconnect...")
                 await self._ws_client.start()
 
@@ -85,10 +91,12 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 self.auth_token = None  # Clear token to force re-authentication
                 raise ConfigEntryAuthFailed("Authentication failed") from error
             _LOGGER.error("API error: %s", error)
-            raise ComputhermConnectionError(f"API error: {error.status}") from error
+            raise ComputhermConnectionError(
+                f"API error: {error.status}") from error
         except ClientError as error:
             _LOGGER.error("Network error: %s", error)
-            raise ComputhermConnectionError("Network connection failed") from error
+            raise ComputhermConnectionError(
+                "Network connection failed") from error
         except Exception as error:
             _LOGGER.exception("Unexpected error")
             raise UpdateFailed(f"Unexpected error: {str(error)}") from error
@@ -108,18 +116,23 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                     raise ComputhermAuthError("Invalid credentials")
                 resp.raise_for_status()
                 result = await resp.json()
-                self.auth_token = result.get("token") or result.get("access_token")
+                self.auth_token = result.get(
+                    "token") or result.get("access_token")
                 if not self.auth_token:
-                    raise ComputhermAuthError("No authentication token received")
+                    raise ComputhermAuthError(
+                        "No authentication token received")
                 _LOGGER.info("Authentication successful")
         except ClientResponseError as error:
             if error.status == 401:
                 raise ConfigEntryAuthFailed("Invalid credentials") from error
-            raise ComputhermConnectionError(f"Authentication failed with status {error.status}") from error
+            raise ComputhermConnectionError(
+                f"Authentication failed with status {error.status}") from error
         except ClientError as error:
-            raise ComputhermConnectionError(f"Network error during authentication: {error}") from error
+            raise ComputhermConnectionError(
+                f"Network error during authentication: {error}") from error
         except Exception as error:
-            raise ComputhermError(f"Unexpected error during authentication: {error}") from error
+            raise ComputhermError(
+                f"Unexpected error during authentication: {error}") from error
 
     async def _fetch_devices(self) -> None:
         """Fetch list of devices for the user."""
@@ -133,19 +146,24 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                     raise ComputhermAuthError("Invalid authentication")
                 resp.raise_for_status()
                 devices = await resp.json()
-                
+
                 await self._process_devices_response(devices)
-                
+
         except ClientResponseError as error:
             if error.status == 401:
-                raise ConfigEntryAuthFailed("Invalid authentication") from error
-            raise ComputhermConnectionError(f"Failed to fetch devices with status {error.status}") from error
+                raise ConfigEntryAuthFailed(
+                    "Invalid authentication") from error
+            raise ComputhermConnectionError(
+                f"Failed to fetch devices with status {error.status}") from error
         except ClientError as error:
-            raise ComputhermConnectionError(f"Network error fetching devices: {error}") from error
+            raise ComputhermConnectionError(
+                f"Network error fetching devices: {error}") from error
         except Exception as error:
-            raise ComputhermError(f"Unexpected error fetching devices: {error}") from error
+            raise ComputhermError(
+                f"Unexpected error fetching devices: {error}") from error
 
-    async def _process_devices_response(self, devices: List[Dict[str, Any]]) -> None:
+    async def _process_devices_response(
+            self, devices: List[Dict[str, Any]]) -> None:
         """Process the devices response data."""
         self.devices = {}
         for device in devices:
@@ -163,16 +181,23 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                     DA.ACCESS_STATUS: device.get(DA.ACCESS_STATUS),
                     "access_rules": device.get("access_rules", {})
                 }
-                _LOGGER.info("Found device: %s with data: %s", serial, self.devices[serial])
+                _LOGGER.info(
+                    "Found device: %s with data: %s",
+                    serial,
+                    self.devices[serial])
             else:
-                _LOGGER.warning("Device without serial number found: %s", device)
-        
+                _LOGGER.warning(
+                    "Device without serial number found: %s", device)
+
         if not self.devices:
             _LOGGER.warning("No devices found for user")
             await self.async_stop()
             self.device_data = {}  # Clear any existing device data
         else:
-            _LOGGER.info("Successfully fetched %d devices: %s", len(self.devices), list(self.devices.keys()))
+            _LOGGER.info(
+                "Successfully fetched %d devices: %s", len(
+                    self.devices), list(
+                    self.devices.keys()))
 
     async def _setup_websocket(self) -> None:
         """Set up WebSocket connection."""
@@ -180,10 +205,13 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             # Only create a new client if we don't have one
             if not self._ws_client:
                 if not self.devices:
-                    _LOGGER.warning("No devices available, skipping WebSocket setup")
+                    _LOGGER.warning(
+                        "No devices available, skipping WebSocket setup")
                     return
 
-                _LOGGER.info("Setting up WebSocket connection for devices: %s", list(self.devices.keys()))
+                _LOGGER.info(
+                    "Setting up WebSocket connection for devices: %s", list(
+                        self.devices.keys()))
                 self._ws_client = WebSocketClient(
                     auth_token=self.auth_token,
                     device_serials=list(self.devices.keys()),
@@ -194,7 +222,8 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         except Exception as error:
             _LOGGER.error("Failed to setup WebSocket connection: %s", error)
             self._ws_client = None
-            raise ComputhermConnectionError(f"WebSocket setup failed: {error}") from error
+            raise ComputhermConnectionError(
+                f"WebSocket setup failed: {error}") from error
 
     def _handle_ws_update(self, update: Dict[str, Any]) -> None:
         """Handle device updates from WebSocket."""
@@ -202,24 +231,25 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             for serial, device_data in update.items():
                 if serial in self.devices:
                     self._process_device_update(serial, device_data)
-            
+
         except Exception as error:
             _LOGGER.error("Error handling WebSocket update: %s", error)
 
-    def _process_device_update(self, serial: str, device_data: Dict[str, Any]) -> None:
+    def _process_device_update(
+            self, serial: str, device_data: Dict[str, Any]) -> None:
         """Process update data for a single device."""
         try:
             # Initialize device_data if not exists
             if serial not in self.device_data:
                 self._initialize_device_data(serial)
-            
+
             # Handle base_info updates
             if "base_info" in device_data:
                 self._process_base_info_update(serial, device_data)
-            
+
             # Handle state updates
             self._process_state_update(serial, device_data)
-            
+
             _LOGGER.debug(
                 "Updated device serial %s id: %s - Online: %s, Temp: %s, Target: %s, Function: %s, Heating: %s",
                 serial,
@@ -230,12 +260,15 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 device_data.get(DA.FUNCTION),
                 device_data.get("is_heating")
             )
-            
+
             # Notify HA of the update
             self.async_set_updated_data(self.device_data)
-            
+
         except Exception as error:
-            _LOGGER.error("Error processing device update for %s: %s", serial, error)
+            _LOGGER.error(
+                "Error processing device update for %s: %s",
+                serial,
+                error)
 
     def _initialize_device_data(self, serial: str) -> None:
         """Initialize data structure for a device."""
@@ -252,9 +285,13 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             "base_info": None,
         }
 
-    def _process_base_info_update(self, serial: str, device_data: Dict[str, Any]) -> None:
+    def _process_base_info_update(
+            self, serial: str, device_data: Dict[str, Any]) -> None:
         """Process base_info update for a device."""
-        _LOGGER.info("Received base_info for device %s: %s", serial, device_data["base_info"])
+        _LOGGER.info(
+            "Received base_info for device %s: %s",
+            serial,
+            device_data["base_info"])
         self.devices_with_base_info[serial] = device_data["base_info"]
         self.device_data[serial].update({
             "base_info": device_data["base_info"],
@@ -264,10 +301,13 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             "relays": device_data["relays"],
         })
 
-    def _process_state_update(self, serial: str, device_data: Dict[str, Any]) -> None:
+    def _process_state_update(
+            self, serial: str, device_data: Dict[str, Any]) -> None:
         """Process state update for a device."""
         # Preserve existing function and mode if not provided in update
-        if device_data.get(DA.FUNCTION) is None and self.device_data[serial].get(DA.FUNCTION) is not None:
+        if device_data.get(
+                DA.FUNCTION) is None and self.device_data[serial].get(
+                DA.FUNCTION) is not None:
             existing_function = self.device_data[serial][DA.FUNCTION]
             self.device_data[serial].update(device_data)
             self.device_data[serial][DA.FUNCTION] = existing_function
@@ -284,7 +324,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         if self._ws_client:
             await self._ws_client.stop()
             self._ws_client = None
-        
+
         self.devices = {}
         self.device_data = {}
         self.auth_token = None
