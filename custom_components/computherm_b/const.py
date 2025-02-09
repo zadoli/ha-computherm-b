@@ -88,34 +88,6 @@ class WebSocketConfig:
             "OFF": "OFF",
         }
 
-# For backward compatibility
-WEBSOCKET_CONFIG = {
-    "URL": WebSocketConfig.BASE_URL,
-    "PING_MESSAGE": WebSocketConfig.PING_MESSAGE,
-    "MESSAGE_TEMPLATES": WebSocketConfig.MESSAGE_TEMPLATES,
-}
-
-WEBSOCKET_URL = WebSocketConfig.BASE_URL
-WS_LOGIN_MESSAGE = WebSocketConfig.MESSAGE_TEMPLATES["LOGIN"]
-WS_SUBSCRIBE_MESSAGE = WebSocketConfig.MESSAGE_TEMPLATES["SUBSCRIBE"]
-WS_SCAN_MESSAGE = WebSocketConfig.MESSAGE_TEMPLATES["SCAN"]
-WS_PING_MESSAGE = WebSocketConfig.PING_MESSAGE
-
-WS_EVENTS = {
-    "TEMPERATURE": WebSocketConfig.Events.TEMPERATURE,
-    "HUMIDITY": WebSocketConfig.Events.HUMIDITY,
-    "TARGET_TEMPERATURE": WebSocketConfig.Events.TARGET_TEMPERATURE,
-    "RELAY": WebSocketConfig.Events.RELAY,
-    "RELAY_STATES": WebSocketConfig.Events.RELAY_STATES,
-}
-
-WS_TEMPERATURE_EVENT = WebSocketConfig.Events.TEMPERATURE
-WS_HUMIDITY_EVENT = WebSocketConfig.Events.HUMIDITY
-WS_TARGET_TEMPERATURE_EVENT = WebSocketConfig.Events.TARGET_TEMPERATURE
-WS_RELAY_EVENT = WebSocketConfig.Events.RELAY
-WS_RELAY_STATE_ON = WebSocketConfig.Events.RELAY_STATES["ON"]
-WS_RELAY_STATE_OFF = WebSocketConfig.Events.RELAY_STATES["OFF"]
-
 # Operation Modes and Functions
 MODE_SCHEDULE: Final[str] = "schedule"
 MODE_MANUAL: Final[str] = "manual"
@@ -125,9 +97,3 @@ AVAILABLE_MODES: Final[List[str]] = [MODE_SCHEDULE, MODE_MANUAL, MODE_OFF]
 FUNCTION_HEATING: Final[str] = "heating"
 FUNCTION_COOLING: Final[str] = "cooling"
 AVAILABLE_FUNCTIONS: Final[List[str]] = [FUNCTION_HEATING, FUNCTION_COOLING]
-
-# Default Values
-DEFAULT_SCAN_INTERVAL: Final[int] = 30  # seconds
-
-# Feature Support
-SUPPORT_FLAGS: Final[int] = 0  # Base support flags, extended in climate.py

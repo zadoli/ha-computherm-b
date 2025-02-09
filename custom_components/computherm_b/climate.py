@@ -33,9 +33,7 @@ from .coordinator import ComputhermDataUpdateCoordinator
 _LOGGER = logging.getLogger(__package__)
 
 SUPPORT_FLAGS: Final = (
-    ClimateEntityFeature.TARGET_TEMPERATURE |
-    ClimateEntityFeature.TURN_OFF |
-    ClimateEntityFeature.TURN_ON
+    ClimateEntityFeature.TARGET_TEMPERATURE
 )
 
 

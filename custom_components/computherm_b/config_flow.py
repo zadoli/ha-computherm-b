@@ -7,7 +7,7 @@ from typing import Any
 
 import voluptuous as vol
 import aiohttp
-from aiohttp import ClientError, ClientResponseError, ClientTimeout
+from aiohttp import ClientTimeout
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
