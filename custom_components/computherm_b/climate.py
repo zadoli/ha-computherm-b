@@ -190,10 +190,10 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     @property
     def hvac_mode(self) -> HVACMode:
         """Return the current operation mode."""
-        if not self.device_data.get(ATTR_ONLINE, False) or "OFF" == self.device_data.get(ATTR_MODE):
+        if not self.device_data.get(ATTR_ONLINE, False) or "off" == self.device_data.get(ATTR_MODE):
             return HVACMode.OFF        
         function = self.device_data.get(ATTR_FUNCTION)
-        if function == "COOLING":
+        if function == "cooling":
             return HVACMode.COOL
         return HVACMode.HEAT
 
@@ -217,7 +217,7 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
             self.hvac_mode
         )
         
-        if function == "COOLING":
+        if function == "cooling":
             action = HVACAction.COOLING if relay_state else HVACAction.IDLE
             _LOGGER.debug("Device %s - Cooling Action: %s", self.serial_number, action)
             return action
@@ -320,7 +320,7 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
                 operation: mode
             }
 
-            if "OFF" == self.device_data.get(ATTR_MODE):
+            if "off" == self.device_data.get(ATTR_MODE):
                 request_data["mode"] = "MANUAL"
 
             _LOGGER.info(

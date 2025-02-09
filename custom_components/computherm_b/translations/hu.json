@@ -26,16 +26,16 @@
             "mode": {
                 "name": "Mód",
                 "state": {
-                    "SCHEDULE": "Program",
-                    "MANUAL": "Kézi",
-                    "OFF": "Ki"
+                    "schedule": "Program",
+                    "manual": "Kézi",
+                    "off": "Ki"
                 }
             },
             "function": {
                 "name": "Funkció",
                 "state": {
-                    "HEATING": "Fűtés",
-                    "COOLING": "Hűtés"
+                    "heating": "Fűtés",
+                    "cooling": "Hűtés"
                 }
             }
         },
@@ -49,16 +49,16 @@
             "rssi_level": {
                 "name": "Jelszint",
                 "state": {
-                    "WEAK": "Gyenge",
-                    "AVERAGE": "Átlagos",
-                    "STRONG": "Erős"
+                    "weak": "Gyenge",
+                    "average": "Átlagos",
+                    "strong": "Erős"
                 }
             },
             "source": {
                 "name": "Forrás",
                 "state": {
-                    "RELAY": "Relé",
-                    "REMOTE": "Vezetéknélküli érzékelő"
+                    "relay": "Relé",
+                    "remote": "Vezetéknélküli érzékelő"
                 }
             }
         },

@@ -209,12 +209,16 @@ class WebSocketClient:
             # Add common sensor attributes if present
             for attr in ["battery", "rssi", "rssi_level", "src"]:
                 if attr in reading:
-                    device_update[attr] = reading[attr]
+                    # Convert rssi_level and src to lowercase
+                    if attr in ["rssi_level", "src"]:
+                        device_update[attr] = str(reading[attr]).lower() if reading[attr] is not None else None
+                    else:
+                        device_update[attr] = reading[attr]
                     _LOGGER.debug(
                         "Device %s %s update: %s",
                         serial,
                         attr,
-                        reading[attr]
+                        device_update[attr]
                     )
                 
             if reading["type"] == WS_TEMPERATURE_EVENT:
@@ -256,7 +260,7 @@ class WebSocketClient:
                     relay_state
                 )
             if "function" in relay:
-                function_value = str(relay[ATTR_FUNCTION]).upper() if relay[ATTR_FUNCTION] is not None else None
+                function_value = str(relay[ATTR_FUNCTION]).lower() if relay[ATTR_FUNCTION] is not None else None
                 device_update[ATTR_FUNCTION] = function_value
                 _LOGGER.debug(
                     "Device %s function update: %s",
@@ -264,7 +268,7 @@ class WebSocketClient:
                     function_value)
                     
             if "mode" in relay:
-                mode_value = str(relay["mode"]).upper() if relay["mode"] is not None else None
+                mode_value = str(relay["mode"]).lower() if relay["mode"] is not None else None
                 device_update[ATTR_MODE] = mode_value
                 _LOGGER.debug(
                     "Device %s mode update: %s",
@@ -328,7 +332,7 @@ class WebSocketClient:
                 sensors = {
                     str(reading["sensor"]): {
                         "id": reading["id"],
-                        "src": reading["src"],
+                        "src": str(reading["src"]).lower() if reading["src"] is not None else None,
                         "sensor": reading["sensor"],
                         "type": reading["type"],
                         "name": reading["name"]

@@ -4,16 +4,16 @@
             "mode": {
                 "name": "Mode",
                 "state": {
-                    "SCHEDULE": "Schedule",
-                    "MANUAL": "Manual",
-                    "OFF": "Off"
+                    "schedule": "Schedule",
+                    "manual": "Manual",
+                    "off": "Off"
                 }
             },
             "function": {
                 "name": "Function",
                 "state": {
-                    "HEATING": "Heating",
-                    "COOLING": "Cooling"
+                    "heating": "Heating",
+                    "cooling": "Cooling"
                 }
             }
         },
@@ -27,16 +27,16 @@
             "rssi_level": {
                 "name": "Signal level",
                 "state": {
-                    "WEAK": "Weak",
-                    "AVERAGE": "Average",
-                    "STRONG": "Strong"
+                    "weak": "Weak",
+                    "average": "Average",
+                    "strong": "Strong"
                 }
             },
             "source": {
                 "name": "Source",
                 "state": {
-                    "RELAY": "Relay",
-                    "REMOTE": "Remote sensor"
+                    "relay": "Relay",
+                    "remote": "Remote sensor"
                 }
             }
         },

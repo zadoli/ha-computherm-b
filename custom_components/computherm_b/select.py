@@ -151,7 +151,7 @@ class ComputhermModeSelect(CoordinatorEntity, SelectEntity):
         url = f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(device_id=self.api_device_id)}"
         payload = {
             "relay": 1,
-            "mode": option
+            "mode": option.upper()
         }
 
         headers = {
@@ -236,7 +236,7 @@ class ComputhermFunctionSelect(CoordinatorEntity, SelectEntity):
         url = f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(device_id=self.api_device_id)}"
         payload = {
             "relay": 1,
-            "function": option
+            "function": option.upper()
         }
 
         headers = {
