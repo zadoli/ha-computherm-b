@@ -5,17 +5,16 @@ import asyncio
 import logging
 from typing import Any
 
-import voluptuous as vol
 import aiohttp
+import voluptuous as vol
 from aiohttp import ClientTimeout
-
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import DOMAIN, API_BASE_URL, API_LOGIN_ENDPOINT
+from .const import API_BASE_URL, API_LOGIN_ENDPOINT, DOMAIN
 
 _LOGGER = logging.getLogger(__package__)
 

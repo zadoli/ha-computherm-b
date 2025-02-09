@@ -1,5 +1,5 @@
 """Constants for the Computherm integration."""
-from typing import Final, Dict, List
+from typing import Dict, Final, List
 
 # Integration domain and coordinator
 DOMAIN: Final[str] = "computherm_b"

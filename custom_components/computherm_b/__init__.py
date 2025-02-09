@@ -1,15 +1,16 @@
 """The Computherm Integration."""
 from __future__ import annotations
-from custom_components.computherm_b.coordinator import ComputhermDataUpdateCoordinator
-from custom_components.computherm_b.const import DOMAIN, COORDINATOR
-from homeassistant.exceptions import ConfigEntryNotReady, ConfigEntryAuthFailed
-from homeassistant.core import HomeAssistant
-from homeassistant.const import (
-    Platform,
-)
-from homeassistant.config_entries import ConfigEntry
 
 import logging
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+
+from custom_components.computherm_b.const import COORDINATOR, DOMAIN
+from custom_components.computherm_b.coordinator import \
+    ComputhermDataUpdateCoordinator
 
 # ANSI color codes
 BLUE = '\033[94m'

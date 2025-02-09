@@ -7,20 +7,14 @@ from typing import Any, Dict, List, Optional
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import (
-    DataUpdateCoordinator,
-    UpdateFailed,
-)
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.update_coordinator import (DataUpdateCoordinator,
+                                                      UpdateFailed)
 
-from .const import (
-    DOMAIN,
-    API_BASE_URL,
-    API_LOGIN_ENDPOINT,
-    API_DEVICES_ENDPOINT,
-    DeviceAttributes as DA,
-)
+from .const import (API_BASE_URL, API_DEVICES_ENDPOINT, API_LOGIN_ENDPOINT,
+                    DOMAIN)
+from .const import DeviceAttributes as DA
 from .websocket import WebSocketClient
 
 _LOGGER = logging.getLogger(__package__)

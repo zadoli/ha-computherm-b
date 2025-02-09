@@ -12,10 +12,8 @@ from typing import Any, Callable, Dict, Final, List, Optional
 import websockets
 from websockets.exceptions import ConnectionClosed
 
-from .const import (
-    WebSocketConfig as WSC,
-    DeviceAttributes as DA,
-)
+from .const import DeviceAttributes as DA
+from .const import WebSocketConfig as WSC
 
 _LOGGER = logging.getLogger(__package__)
 

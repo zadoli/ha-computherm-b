@@ -4,27 +4,19 @@ from __future__ import annotations
 import logging
 from typing import Any, Final, Optional
 
-from homeassistant.components.sensor import (
-    SensorEntity,
-    SensorDeviceClass,
-    SensorStateClass,
-)
-from homeassistant.components.binary_sensor import (
-    BinarySensorEntity,
-    BinarySensorDeviceClass,
-)
+from homeassistant.components.binary_sensor import (BinarySensorDeviceClass,
+                                                    BinarySensorEntity)
+from homeassistant.components.sensor import (SensorDeviceClass, SensorEntity,
+                                             SensorStateClass)
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import UnitOfTemperature, PERCENTAGE
+from homeassistant.const import PERCENTAGE, UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.helpers.entity import EntityCategory
 
-from .const import (
-    DOMAIN,
-    COORDINATOR,
-    DeviceAttributes as DA,
-)
+from .const import COORDINATOR, DOMAIN
+from .const import DeviceAttributes as DA
 from .coordinator import ComputhermDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__package__)
