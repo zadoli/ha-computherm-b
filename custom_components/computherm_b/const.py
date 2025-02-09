@@ -82,7 +82,6 @@ class WebSocketConfig:
                 '\\"cmd\\":\\"scan\\"}}"]',
     }
 
-
     class Events:
         """WebSocket event type constants."""
         TEMPERATURE: Final[str] = "TEMPERATURE"
