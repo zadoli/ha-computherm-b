@@ -5,15 +5,16 @@ This is a Home Assistant integration for Computherm B Series WiFi thermostats. I
 ## Features
 
 - Support for multiple Computherm B Series devices under one account
-- Real-time temperature monitoring
+- Real-time temperature and humidity (if supported) monitoring
 - Target temperature control
-- Operation mode control (Heat/Off)
+- Function control (Heat/Cool/Off)
+- Operation mode control (Auto/Manual/Off)
 - Regular status updates via cloud polling
 - Automatic device discovery
 
 ## Installation
 
-### HACS Installation
+### HACS Installation (CURRENTLY NOT AVAILABLE)
 
 1. Open HACS in your Home Assistant instance
 2. Click on "Integrations"
@@ -39,18 +40,25 @@ This is a Home Assistant integration for Computherm B Series WiFi thermostats. I
 5. Click "Submit"
 6. The integration will automatically discover and add all B Series devices associated with your account
 
-## Supported Devices
+[//]: # (## Supported Devices)
 
-All Computherm B Series WiFi thermostats that can be controlled through the Computherm B Series mobile app are supported, including:
-- B Series WiFi Thermostats
-- Any future B Series compatible devices
+[//]: # ()
+[//]: # (All Computherm B Series WiFi thermostats that can be controlled through the Computherm B Series mobile app are supported, including:)
+
+[//]: # (- B Series WiFi Thermostats)
+
+[//]: # (- Any future B Series compatible devices)
+
+## Tested Devices
+The tested devices had only one input sensor and one relay output, so the integration may not work (or only work with the "first") with devices that have more than one input and output.
+- [Computherm B300](https://computherm.info/en/wi-fi_thermostats/computherm_b300)
+- [Computherm B300RF](https://computherm.info/en/wi-fi_thermostats/computherm_b300rf)
 
 ## API Documentation
 
 The integration uses the official Computherm B Series API:
 - API Base URL: `https://api.computhermbseries.com`
-- API Version: v1
-- Authentication: Bearer token
+- Reverse-engineered Websocket API: `wss://api.computhermbseries.com/socket.io/?EIO=4&transport=websocket`
 
 ## Error Handling
 

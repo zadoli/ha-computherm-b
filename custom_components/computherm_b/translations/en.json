@@ -38,9 +38,7 @@
                     "relay": "Relay",
                     "remote": "Remote sensor"
                 }
-            }
-        },
-        "binary_sensor": {
+            },
             "relay": {
                 "name": "Relay"
             }

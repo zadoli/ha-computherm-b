@@ -60,9 +60,7 @@
                     "relay": "Relé",
                     "remote": "Vezetéknélküli érzékelő"
                 }
-            }
-        },
-        "binary_sensor": {
+            },
             "relay": {
                 "name": "Relé"
             }
