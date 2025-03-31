@@ -198,7 +198,6 @@ class WebSocketClient:
         self._reconnect_interval: float = 10  # Start with 10 seconds
         self._max_reconnect_interval: Final[float] = 600  # Max 10 minutes
         self._reconnect_attempts: int = 0
-        self._max_reconnect_attempts: Final[int] = 5  # Max 5 attempts before giving up
         self._stopping: bool = False
         # Flag to prevent multiple simultaneous connection attempts
         self._connecting: bool = False
@@ -270,10 +269,6 @@ class WebSocketClient:
                 return
 
             self._reconnect_attempts += 1
-            if self._reconnect_attempts > self._max_reconnect_attempts:
-                _LOGGER.error("Maximum reconnection attempts reached. Stopping reconnection.")
-                self._stopping = True
-                return
 
             # Implement exponential backoff with jitter
             jitter = random.uniform(0.8, 1.2)
@@ -283,9 +278,8 @@ class WebSocketClient:
             )
             
             _LOGGER.debug(
-                "Reconnection attempt %d of %d in %.1f seconds",
+                "Reconnection attempt %d in %.1f seconds",
                 self._reconnect_attempts,
-                self._max_reconnect_attempts,
                 backoff_time
             )
             
