@@ -59,11 +59,6 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         self._ws_client: Optional[WebSocketClient] = None
         _LOGGER.info("Initialized ComputhermDataUpdateCoordinator")
 
-    async def manual_reconnect(self) -> None:
-        """Manually trigger a WebSocket reconnection."""
-        if self._ws_client:
-            await self._ws_client.manual_reconnect()
-
     async def _async_update_data(self) -> Dict[str, Any]:
         """Fetch data from API endpoint."""
         try:

@@ -289,16 +289,6 @@ class WebSocketClient:
         finally:
             self._connecting = False
 
-    async def manual_reconnect(self) -> None:
-        """Manually trigger a reconnection."""
-        _LOGGER.info("Manual reconnection triggered")
-        self._stopping = True
-        await self._cleanup_tasks()
-        self._reconnect_attempts = 0  # Reset reconnection attempts
-        self._reconnect_interval = 20  # Reset interval
-        self._stopping = False
-        await self.start()
-
     async def stop(self) -> None:
         """Stop the WebSocket connection."""
         if not self._stopping:
@@ -398,10 +388,10 @@ class WebSocketClient:
             return None
 
     def _token_needs_refresh(self) -> bool:
-        """Check if token needs refresh (within 5 minutes of expiry)."""
+        """Check if token needs refresh (within 1 hour of expiry)."""
         if self.token_expiry is None:
             return False
-        return datetime.now() + timedelta(hours=36) >= self.token_expiry
+        return datetime.now() + timedelta(hours=47) >= self.token_expiry
         
     def set_token_refresh_in_progress(self, in_progress: bool) -> None:
         """Set the token refresh in progress flag."""
