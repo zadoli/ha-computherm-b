@@ -194,7 +194,7 @@ class WebSocketClient:
         self._ws_task: Optional[asyncio.Task] = None
         self._sid: Optional[str] = None
         self._ping_interval: Optional[float] = None
-        self._last_ping_time: Optional[datetime] = None
+        self._last_message_time: Optional[datetime] = None
         self._reconnect_interval: float = 10  # Start with 10 seconds
         self._max_reconnect_interval: Final[float] = 600  # Max 10 minutes
         self._reconnect_attempts: int = 0
@@ -316,7 +316,7 @@ class WebSocketClient:
         """Check if token needs refresh (within 1 hour of expiry)."""
         if self.token_expiry is None:
             return False
-        return datetime.now() + timedelta(hours=47) >= self.token_expiry
+        return datetime.now() + timedelta(hours = 1) >= self.token_expiry
         
     def set_token_refresh_in_progress(self, in_progress: bool) -> None:
         """Set the token refresh in progress flag."""
@@ -416,8 +416,8 @@ class WebSocketClient:
                 await self.websocket.recv()
                 _LOGGER.debug("Scan response received for device %s", serial)
 
-            # Initialize last ping time
-            self._last_ping_time = datetime.now()
+            # Initialize last message time
+            self._last_message_time = datetime.now()
         except Exception as error:
             _LOGGER.error("Error during setup: %s", error)
             if self.websocket:
@@ -431,15 +431,15 @@ class WebSocketClient:
             if self._stopping:
                 return
                 
-            # Check if we've exceeded the ping timeout (ping_interval + 15%)
-            if self._last_ping_time is not None and self._ping_interval is not None:
-                time_since_last_ping = (datetime.now() - self._last_ping_time).total_seconds()
-                ping_timeout = self._ping_interval * 1.15  # Add 15% to the ping interval
+            # Check if we've exceeded the message timeout (ping_interval + 20%)
+            if self._last_message_time is not None and self._ping_interval is not None:
+                time_since_last_message = (datetime.now() - self._last_message_time).total_seconds()
+                ping_timeout = self._ping_interval * 1.2  # Add 20% to the ping interval
                 
-                if time_since_last_ping > ping_timeout:
+                if time_since_last_message > ping_timeout:
                     _LOGGER.info(
                         "Server ping timeout: %.1f seconds since last ping (timeout: %.1f seconds). Reconnecting...",
-                        time_since_last_ping,
+                        time_since_last_message,
                         ping_timeout
                     )
                     if self.websocket:
@@ -452,25 +452,29 @@ class WebSocketClient:
 
     async def _handle_message(self, message: str) -> None:
         """Handle incoming WebSocket message."""
+
+        time_since_last_message = (datetime.now() - self._last_message_time).total_seconds()
+
+        self._last_message_time = datetime.now()  # Update last ping time
+
         # Handle Socket.IO protocol messages
         if message == "2":  # Socket.IO v4 ping message from server
-            _LOGGER.debug("Server ping received, sending pong")
+            _LOGGER.debug("After %.1f sec, server ping received, sending pong", time_since_last_message)
             await self.websocket.send("3")  # Send pong response (3 is pong in Socket.IO v4)
-            self._last_ping_time = datetime.now()  # Update last ping time
             return
         elif message == "1":  # Socket.IO v4 disconnect message
-            _LOGGER.warning("Server requested disconnect")
+            _LOGGER.warning("After %.1f sec, server requested disconnect", time_since_last_message)
             if self.websocket:
                 await self.websocket.close()
             return
         elif message.startswith("0"):  # Socket.IO v4 connect message (should be handled in _handle_initial_connection)
-            _LOGGER.debug("Received connect message outside of initial connection")
+            _LOGGER.debug("After %.1f sec, received connect message outside of initial connection", time_since_last_message)
             return
         elif message.startswith("40"):  # Socket.IO v4 namespace connect message
-            _LOGGER.debug("Namespace connect message received: %s", message)
+            _LOGGER.debug("After %.1f sec, namespace connect message received: %s",time_since_last_message, message)
             return
         elif message.startswith("41"):  # Socket.IO v4 namespace disconnect message
-            _LOGGER.debug("Namespace disconnect message received: %s", message)
+            _LOGGER.debug("After %.1f sec, namespace disconnect message received: %s", time_since_last_message, message)
             return
             
         result = self._message_handler.handle_websocket_message(message)
@@ -483,7 +487,7 @@ class WebSocketClient:
                 await self.websocket.close()
             return
 
-        _LOGGER.debug("Received WebSocket message: %s", data)
+        _LOGGER.debug("After %.1f sec, received WebSocket message: %s", time_since_last_message, data)
 
         if data[0] != "event":
             _LOGGER.debug(
