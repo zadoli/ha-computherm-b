@@ -280,17 +280,6 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             # Handle state updates
             self._process_state_update(serial, device_data)
 
-            # _LOGGER.debug(
-            #     "Updated device serial %s id: %s - Online: %s, Temp: %s, Target: %s, Function: %s, Heating: %s",
-            #     serial,
-            #     self.device_data[serial][DA.DEVICE_ID],
-            #     device_data.get(DA.ONLINE),
-            #     device_data.get(DA.TEMPERATURE),
-            #     device_data.get(DA.TARGET_TEMPERATURE),
-            #     device_data.get(DA.FUNCTION),
-            #     device_data.get("is_heating")
-            # )
-
             # Notify HA of the update
             self.async_set_updated_data(self.device_data)
 
@@ -318,9 +307,6 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
     def _process_base_info_update(
             self, serial: str, device_data: Dict[str, Any]) -> None:
         """Process base_info update for a device."""
-        # _LOGGER.debug(
-        #     "Received base_info for device %s",
-        #     serial)
         self.devices_with_base_info[serial] = device_data["base_info"]
         self.device_data[serial].update({
             "base_info": device_data["base_info"],
