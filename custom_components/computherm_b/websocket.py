@@ -101,109 +101,43 @@ class WebSocketMessageHandler:
                             reading[attr]).lower() if reading[attr] is not None else None
                     else:
                         device_update[attr] = reading[attr]
-                    # _LOGGER.debug(
-                    #     "Device %s %s update: %s",
-                    #     serial,
-                    #     attr,
-                    #     device_update[attr]
-                    # )
 
             if reading["type"] == WSC.Events.TEMPERATURE:
                 reading_value = None if reading["reading"] == "N/A" else reading["reading"]
                 device_update[DA.TEMPERATURE] = reading_value
-                # if reading_value is not None:
-                #     _LOGGER.debug(
-                #         "Device %s temperature update: %.1f°C",
-                #         serial,
-                #         reading_value
-                #     )
-                # else:
-                #     _LOGGER.debug(
-                #         "Device %s temperature update: N/A",
-                #         serial
-                #     )
+
             elif reading["type"] == WSC.Events.HUMIDITY:
                 reading_value = None if reading["reading"] == "N/A" else reading["reading"]
                 device_update[DA.HUMIDITY] = reading_value
-                # if reading_value is not None:
-                #     _LOGGER.debug(
-                #         "Device %s humidity update: %.1f%%",
-                #         serial,
-                #         reading_value
-                #     )
-                # else:
-                #     _LOGGER.debug(
-                #         "Device %s humidity update: N/A",
-                #         serial
-                #     )
+
             elif reading["type"] == WSC.Events.TARGET_TEMPERATURE:
                 reading_value = None if reading["reading"] == "N/A" else reading["reading"]
                 device_update[DA.TARGET_TEMPERATURE] = reading_value
-                # if reading_value is not None:
-                #     _LOGGER.debug(
-                #         "Device %s target temperature update: %.1f°C",
-                #         serial,
-                #         reading_value
-                #     )
-                # else:
-                #     _LOGGER.debug(
-                #         "Device %s target temperature update: N/A",
-                #         serial
-                #     )
 
     @staticmethod
     def _process_relays(
             relays: List[Dict[str, Any]], serial: str, device_update: Dict[str, Any]) -> None:
         """Process relay states and update device state."""
-        # _LOGGER.debug("Processing relays for device %s: %s", serial, relays)
         for relay in relays:
-            # _LOGGER.debug(
-            #     "Processing relay update for device %s: %s",
-            #     serial,
-            #     relay)
             if "relay_state" in relay:
                 relay_state = relay[DA.RELAY_STATE] == WSC.Events.RELAY_STATES["ON"]
                 device_update[DA.RELAY_STATE] = relay_state
                 # Keep is_heating for backward compatibility
                 device_update["is_heating"] = relay_state
-                # _LOGGER.debug(
-                #     "Device %s relay state update: %s (relay_state: %s, is_heating: %s)",
-                #     serial,
-                #     "ON" if relay_state else "OFF",
-                #     relay_state,
-                #     relay_state)
+
             if "function" in relay:
                 function_value = str(relay[DA.FUNCTION]).lower(
                 ) if relay[DA.FUNCTION] is not None else None
                 device_update[DA.FUNCTION] = function_value
-                # _LOGGER.debug(
-                #     "Device %s function update: %s",
-                #     serial,
-                #     function_value)
 
             if "mode" in relay:
                 mode_value = str(relay["mode"]).lower(
                 ) if relay["mode"] is not None else None
                 device_update[DA.MODE] = mode_value
-                # _LOGGER.debug(
-                #     "Device %s mode update: %s",
-                #     serial,
-                #     mode_value)
 
             if "manual_set_point" in relay:
                 set_point = None if relay["manual_set_point"] == "N/A" else relay["manual_set_point"]
                 device_update[DA.TARGET_TEMPERATURE] = set_point
-                # if set_point is not None:
-                #     _LOGGER.debug(
-                #         "Device %s target temperature point update: %.1f°C",
-                #         serial,
-                #         set_point
-                #     )
-                # else:
-                #     _LOGGER.debug(
-                #         "Device %s target temperature point update: N/A",
-                #         serial
-                #     )
 
     @staticmethod
     def process_base_info(
@@ -238,10 +172,7 @@ class WebSocketMessageHandler:
             "sensors": sensors,
             "relays": relays,
         }
-        # _LOGGER.debug(
-        #     "Updated device %s with device_update: %s",
-        #     serial,
-        #     device_update)
+
         return device_update
 
 
@@ -601,19 +532,8 @@ class WebSocketClient:
                 event_data["readings"], serial, device_update)
 
         if "relays" in event_data:
-            # _LOGGER.debug(
-            #     "Device %s received relay update: %s",
-            #     serial,
-            #     event_data["relays"]
-            # )
             self._message_handler._process_relays(
                 event_data["relays"], serial, device_update)
-
-        # _LOGGER.debug(
-        #     "Device %s %s: %s",
-        #     serial,
-        #     "base_info and state update" if "base_info" in event_data else "update",
-        #     device_update)
 
         # Notify callback with the update
         self.data_callback({serial: device_update})
