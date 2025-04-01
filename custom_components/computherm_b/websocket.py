@@ -253,7 +253,7 @@ class WebSocketClient:
                 await self._handle_connection()
             except ConnectionClosed as error:
                 if error.rcvd.code in (1000, 1005):
-                    _LOGGER.debug("WebSocket connection closed (normal closure): %s", error)
+                    _LOGGER.debug("WebSocket connection closed normally")
                 else:
                     _LOGGER.warning("WebSocket connection closed: %s", error)
             except Exception as error:
