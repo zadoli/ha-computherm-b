@@ -9,8 +9,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 
 from custom_components.computherm_b.const import COORDINATOR, DOMAIN
-from custom_components.computherm_b.coordinator import \
-    ComputhermDataUpdateCoordinator
+from custom_components.computherm_b.coordinator import (
+    ComputhermDataUpdateCoordinator,
+)
 
 # ANSI color codes
 BLUE = '\033[94m'

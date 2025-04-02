@@ -30,7 +30,7 @@ class WebSocketMessageHandler:
     @staticmethod
     def handle_websocket_message(message: str) -> Optional[tuple[bool, Any]]:
         """Handle WebSocket message parsing and error checking.
-        
+
         Returns:
             Optional[tuple[bool, Any]]: A tuple containing:
                 - bool: True if message is an error that requires connection closure
@@ -56,8 +56,9 @@ class WebSocketMessageHandler:
                 error_data = data[1]
                 error_msg = error_data.get("message", "Unknown error")
                 error_status = error_data.get("status")
-                
-                if isinstance(error_data, dict) and error_status == "error" and error_msg == "Forbidden resource":
+
+                if (isinstance(error_data, dict) and error_status == "error"
+                        and error_msg == "Forbidden resource"):
                     _LOGGER.error(
                         "WebSocket error: %s (Status: %s)",
                         error_msg,
@@ -65,7 +66,11 @@ class WebSocketMessageHandler:
                     return True, error_data
                 else:
                     error_code = error_data.get("code")
-                    if hasattr(error_code, 'rcvd') and error_code.rcvd.code in (1000, 1005):
+                    if hasattr(
+                            error_code,
+                            'rcvd') and error_code.rcvd.code in (
+                            1000,
+                            1005):
                         _LOGGER.debug(
                             "WebSocket error (normal closure): %s (Code: %s, Full data: %s)",
                             error_msg,
@@ -86,7 +91,10 @@ class WebSocketMessageHandler:
 
     @staticmethod
     def _process_readings(
-            readings: List[Dict[str, Any]], serial: str, device_update: Dict[str, Any]) -> None:
+            readings: List[Dict[str, Any]],
+            serial: str,
+            device_update: Dict[str, Any]
+    ) -> None:
         """Process temperature and humidity readings and update device state."""
         for reading in readings:
             if "reading" not in reading:
@@ -116,7 +124,10 @@ class WebSocketMessageHandler:
 
     @staticmethod
     def _process_relays(
-            relays: List[Dict[str, Any]], serial: str, device_update: Dict[str, Any]) -> None:
+            relays: List[Dict[str, Any]],
+            serial: str,
+            device_update: Dict[str, Any]
+    ) -> None:
         """Process relay states and update device state."""
         for relay in relays:
             if "relay_state" in relay:
@@ -126,22 +137,25 @@ class WebSocketMessageHandler:
                 device_update["is_heating"] = relay_state
 
             if "function" in relay:
-                function_value = str(relay[DA.FUNCTION]).lower(
-                ) if relay[DA.FUNCTION] is not None else None
+                function_value = (str(relay[DA.FUNCTION]).lower()
+                                  if relay[DA.FUNCTION] is not None else None)
                 device_update[DA.FUNCTION] = function_value
 
             if "mode" in relay:
-                mode_value = str(relay["mode"]).lower(
-                ) if relay["mode"] is not None else None
+                mode_value = (str(relay["mode"]).lower()
+                              if relay["mode"] is not None else None)
                 device_update[DA.MODE] = mode_value
 
             if "manual_set_point" in relay:
-                set_point = None if relay["manual_set_point"] == "N/A" else relay["manual_set_point"]
+                set_point = (None if relay["manual_set_point"] == "N/A"
+                             else relay["manual_set_point"])
                 device_update[DA.TARGET_TEMPERATURE] = set_point
 
     @staticmethod
     def process_base_info(
-            event_data: Dict[str, Any], serial: str) -> Dict[str, Any]:
+            event_data: Dict[str, Any],
+            serial: str
+    ) -> Dict[str, Any]:
         """Process base_info event data."""
         relay_array = event_data.get("relays", [])
         reading_array = event_data.get("readings", [])
@@ -149,7 +163,8 @@ class WebSocketMessageHandler:
         sensors = {
             str(reading["sensor"]): {
                 "id": reading["id"],
-                "src": str(reading["src"]).lower() if reading["src"] is not None else None,
+                "src": (str(reading["src"]).lower()
+                        if reading["src"] is not None else None),
                 "sensor": reading["sensor"],
                 "type": reading["type"],
                 "name": reading["name"]
@@ -189,7 +204,8 @@ class WebSocketClient:
         self.auth_token = auth_token
         self.device_serials = device_serials
         self.data_callback = data_callback
-        self.token_expiry: Optional[datetime] = self._get_token_expiry(auth_token)
+        self.token_expiry: Optional[datetime] = self._get_token_expiry(
+            auth_token)
         self.websocket = None
         self._ws_task: Optional[asyncio.Task] = None
         self._sid: Optional[str] = None
@@ -257,8 +273,10 @@ class WebSocketClient:
                 else:
                     _LOGGER.warning("WebSocket connection closed: %s", error)
             except Exception as error:
-                # For error code -3 ("Try again"), only set error state after backoff time
-                is_try_again_error = hasattr(error, 'errno') and error.errno == -3
+                # For error code -3 ("Try again"), only set error state after
+                # backoff time
+                is_try_again_error = hasattr(
+                    error, 'errno') and error.errno == -3
 
                 if is_try_again_error:
                     _LOGGER.info("DEBUG WebSocket error: %s", error)
@@ -276,13 +294,13 @@ class WebSocketClient:
                 self._reconnect_interval * (2 ** (self._reconnect_attempts - 1)) * jitter,
                 self._max_reconnect_interval
             )
-            
+
             _LOGGER.debug(
                 "Reconnection attempt %d in %.1f seconds",
                 self._reconnect_attempts,
                 backoff_time
             )
-            
+
             # Wait for backoff time
             await asyncio.sleep(backoff_time)
 
@@ -305,7 +323,9 @@ class WebSocketClient:
             # Get expiration timestamp
             if 'exp' in payload_data:
                 expiry_time = datetime.fromtimestamp(payload_data['exp'])
-                _LOGGER.info("Auth token will expire at: %s", expiry_time.strftime("%Y-%m-%d %H:%M:%S"))
+                _LOGGER.info(
+                    "Auth token will expire at: %s",
+                    expiry_time.strftime("%Y-%m-%d %H:%M:%S"))
                 return expiry_time
             return None
         except Exception as error:
@@ -316,8 +336,8 @@ class WebSocketClient:
         """Check if token needs refresh (within 1 hour of expiry)."""
         if self.token_expiry is None:
             return False
-        return datetime.now() + timedelta(hours = 1) >= self.token_expiry
-        
+        return datetime.now() + timedelta(hours=1) >= self.token_expiry
+
     def set_token_refresh_in_progress(self, in_progress: bool) -> None:
         """Set the token refresh in progress flag."""
         self._token_refresh_in_progress = in_progress
@@ -326,7 +346,8 @@ class WebSocketClient:
         """Handle a single WebSocket connection lifecycle."""
         # Check if token needs refresh before reconnecting
         if self._token_needs_refresh():
-            _LOGGER.info("Auth token near expiry, requesting coordinator to refresh...")
+            _LOGGER.info(
+                "Auth token near expiry, requesting coordinator to refresh...")
             # Only notify if not already in token refresh
             if not self._token_refresh_in_progress:
                 self.data_callback({"token_refresh_needed": True})
@@ -352,7 +373,6 @@ class WebSocketClient:
             await self._setup_connection()
             await self._process_messages()
 
-
     async def _handle_initial_connection(self) -> None:
         """Handle initial connection message and setup."""
         message = await self.websocket.recv()
@@ -374,7 +394,7 @@ class WebSocketClient:
             await self.websocket.send(login_message)
             login_response = await self.websocket.recv()
             _LOGGER.debug("Login response received")
-            
+
             # Check for authentication errors in the login response
             if "error" in login_response or "exception" in login_response:
                 _LOGGER.error("Authentication failed: %s", login_response)
@@ -397,10 +417,13 @@ class WebSocketClient:
             _LOGGER.debug("Sending subscribe message: %s", subscribe_msg)
             await self.websocket.send(subscribe_msg)
             subscribe_response = await self.websocket.recv()
-            _LOGGER.debug("Subscribe response received: %s", subscribe_response)
+            _LOGGER.debug(
+                "Subscribe response received: %s",
+                subscribe_response)
 
             # Handle subscription response
-            result = self._message_handler.handle_websocket_message(subscribe_response)
+            result = self._message_handler.handle_websocket_message(
+                subscribe_response)
             if result:
                 should_close, _ = result
                 if should_close and self.websocket:
@@ -410,7 +433,8 @@ class WebSocketClient:
 
             # Request properties for each device
             for serial in self.device_serials:
-                scan_msg = WSC.MESSAGE_TEMPLATES["SCAN"].format(device_id=serial)
+                scan_msg = WSC.MESSAGE_TEMPLATES["SCAN"].format(
+                    device_id=serial)
                 _LOGGER.debug("Sending scan request for device %s", serial)
                 await self.websocket.send(scan_msg)
                 await self.websocket.recv()
@@ -430,53 +454,72 @@ class WebSocketClient:
         while True:
             if self._stopping:
                 return
-                
+
             # Check if we've exceeded the message timeout (ping_interval + 20%)
             if self._last_message_time is not None and self._ping_interval is not None:
-                time_since_last_message = (datetime.now() - self._last_message_time).total_seconds()
+                time_since_last_message = (
+                    datetime.now() - self._last_message_time).total_seconds()
                 ping_timeout = self._ping_interval * 1.2  # Add 20% to the ping interval
-                
+
                 if time_since_last_message > ping_timeout:
                     _LOGGER.info(
-                        "Server ping timeout: %.1f seconds since last ping (timeout: %.1f seconds). Reconnecting...",
+                        "Server ping timeout: %.1f sec since last ping (timeout: %.1f seconds). Reconnecting...",
                         time_since_last_message,
-                        ping_timeout
-                    )
+                        ping_timeout)
                     if self.websocket:
                         await self.websocket.close()
                     return  # Exit to trigger reconnection
-            
+
             message = await self.websocket.recv()
             await self._handle_message(message)
-
 
     async def _handle_message(self, message: str) -> None:
         """Handle incoming WebSocket message."""
 
-        time_since_last_message = (datetime.now() - self._last_message_time).total_seconds()
+        time_since_last_message = (
+            datetime.now() -
+            self._last_message_time).total_seconds()
 
         self._last_message_time = datetime.now()  # Update last ping time
 
         # Handle Socket.IO protocol messages
         if message == "2":  # Socket.IO v4 ping message from server
-            _LOGGER.debug("After %.1f sec, server ping received, sending pong", time_since_last_message)
-            await self.websocket.send("3")  # Send pong response (3 is pong in Socket.IO v4)
+            _LOGGER.debug(
+                "After %.1f sec, server ping received, sending pong",
+                time_since_last_message)
+            # Send pong response (3 is pong in Socket.IO v4)
+            await self.websocket.send("3")
             return
         elif message == "1":  # Socket.IO v4 disconnect message
-            _LOGGER.warning("After %.1f sec, server requested disconnect", time_since_last_message)
+            _LOGGER.warning(
+                "After %.1f sec, server requested disconnect",
+                time_since_last_message)
             if self.websocket:
                 await self.websocket.close()
             return
-        elif message.startswith("0"):  # Socket.IO v4 connect message (should be handled in _handle_initial_connection)
-            _LOGGER.debug("After %.1f sec, received connect message outside of initial connection", time_since_last_message)
+
+        # Socket.IO v4 connect message (should be handled in
+        # _handle_initial_connection)
+        elif message.startswith("0"):
+            _LOGGER.debug(
+                "After %.1f sec, received connect message outside of initial connection",
+                time_since_last_message)
             return
-        elif message.startswith("40"):  # Socket.IO v4 namespace connect message
-            _LOGGER.debug("After %.1f sec, namespace connect message received: %s",time_since_last_message, message)
+
+        # Socket.IO v4 namespace connect message
+        elif message.startswith("40"):
+            _LOGGER.debug(
+                "After %.1f sec, namespace connect message received: %s",
+                time_since_last_message, message)
             return
-        elif message.startswith("41"):  # Socket.IO v4 namespace disconnect message
-            _LOGGER.debug("After %.1f sec, namespace disconnect message received: %s", time_since_last_message, message)
+
+        # Socket.IO v4 namespace disconnect message
+        elif message.startswith("41"):
+            _LOGGER.debug(
+                "After %.1f sec, namespace disconnect message received: %s",
+                time_since_last_message, message)
             return
-            
+
         result = self._message_handler.handle_websocket_message(message)
         if not result:
             return
@@ -487,7 +530,9 @@ class WebSocketClient:
                 await self.websocket.close()
             return
 
-        _LOGGER.debug("After %.1f sec, received WebSocket message: %s", time_since_last_message, data)
+        _LOGGER.debug(
+            "After %.1f sec, received WebSocket message: %s",
+            time_since_last_message, data)
 
         if data[0] != "event":
             _LOGGER.debug(

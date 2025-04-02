@@ -9,11 +9,17 @@ from aiohttp import ClientError, ClientResponseError, ClientSession
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.update_coordinator import (DataUpdateCoordinator,
-                                                      UpdateFailed)
+from homeassistant.helpers.update_coordinator import (
+    DataUpdateCoordinator,
+    UpdateFailed,
+)
 
-from .const import (API_BASE_URL, API_DEVICES_ENDPOINT, API_LOGIN_ENDPOINT,
-                    DOMAIN)
+from .const import (
+    API_BASE_URL,
+    API_DEVICES_ENDPOINT,
+    API_LOGIN_ENDPOINT,
+    DOMAIN,
+)
 from .const import DeviceAttributes as DA
 from .websocket import WebSocketClient
 
@@ -240,7 +246,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         """Handle token refresh and WebSocket reconnection."""
         try:
             _LOGGER.info("Refreshing auth token...")
-            
+
             # Set token refresh in progress flag
             if self._ws_client:
                 self._ws_client.set_token_refresh_in_progress(True)
@@ -249,14 +255,14 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
 
             # Get new token
             await self._authenticate()
-            
+
             # Restart WebSocket with new token
             await self._setup_websocket()
-            
+
             # Reset token refresh flag on the new client
             if self._ws_client:
                 self._ws_client.set_token_refresh_in_progress(False)
-                
+
             _LOGGER.info("Token refresh and WebSocket reconnection completed")
         except Exception as error:
             _LOGGER.error("Failed to refresh token: %s", error)
