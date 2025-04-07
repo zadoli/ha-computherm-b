@@ -204,14 +204,6 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         function = self.device_data.get(DA.FUNCTION)
         relay_state = self.device_data.get(DA.RELAY_STATE, False)
 
-        _LOGGER.debug(
-            "Device %s - Function: %s, Relay State: %s, HVAC Mode: %s",
-            self.serial_number,
-            function,
-            relay_state,
-            self.hvac_mode
-        )
-
         return self._determine_hvac_action(function, relay_state)
 
     def _is_device_active(self) -> bool:
@@ -235,17 +227,9 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         """Determine the current HVAC action based on function and relay state."""
         if function == "cooling":
             action = HVACAction.COOLING if relay_state else HVACAction.IDLE
-            _LOGGER.debug(
-                "Device %s - Cooling Action: %s",
-                self.serial_number,
-                action)
             return action
 
         action = HVACAction.HEATING if relay_state else HVACAction.IDLE
-        _LOGGER.debug(
-            "Device %s - Heating Action: %s",
-            self.serial_number,
-            action)
         return action
 
     @property

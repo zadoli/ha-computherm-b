@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Final, Optional
+from typing import Any
 
 from homeassistant.components.binary_sensor import (BinarySensorDeviceClass,
                                                     BinarySensorEntity)

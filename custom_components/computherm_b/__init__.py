@@ -53,7 +53,8 @@ _LOGGER.propagate = False  # Prevent duplicate logging
 PLATFORMS: list[Platform] = [
     Platform.CLIMATE,
     Platform.SENSOR,
-    Platform.SELECT]
+    Platform.SELECT
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

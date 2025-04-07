@@ -222,12 +222,48 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
     def _handle_ws_update(self, update: Dict[str, Any]) -> None:
         """Handle device updates from WebSocket."""
         try:
+            # Handle token refresh request
+            if "token_refresh_needed" in update:
+                _LOGGER.info("Token refresh requested by WebSocket client")
+                asyncio.create_task(self._handle_token_refresh())
+                return
+
+            # Handle device updates
             for serial, device_data in update.items():
                 if serial in self.devices:
                     self._process_device_update(serial, device_data)
 
         except Exception as error:
             _LOGGER.error("Error handling WebSocket update: %s", error)
+
+    async def _handle_token_refresh(self) -> None:
+        """Handle token refresh and WebSocket reconnection."""
+        try:
+            _LOGGER.info("Refreshing auth token...")
+
+            # Set token refresh in progress flag
+            if self._ws_client:
+                self._ws_client.set_token_refresh_in_progress(True)
+                await self._ws_client.stop()
+                self._ws_client = None
+
+            # Get new token
+            await self._authenticate()
+
+            # Restart WebSocket with new token
+            await self._setup_websocket()
+
+            # Reset token refresh flag on the new client
+            if self._ws_client:
+                self._ws_client.set_token_refresh_in_progress(False)
+
+            _LOGGER.info("Token refresh and WebSocket reconnection completed")
+        except Exception as error:
+            _LOGGER.error("Failed to refresh token: %s", error)
+            # Make sure to reset the flag even on error
+            if self._ws_client:
+                self._ws_client.set_token_refresh_in_progress(False)
+            raise
 
     def _process_device_update(
             self, serial: str, device_data: Dict[str, Any]) -> None:
@@ -243,17 +279,6 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
 
             # Handle state updates
             self._process_state_update(serial, device_data)
-
-            _LOGGER.debug(
-                "Updated device serial %s id: %s - Online: %s, Temp: %s, Target: %s, Function: %s, Heating: %s",
-                serial,
-                self.device_data[serial][DA.DEVICE_ID],
-                device_data.get(DA.ONLINE),
-                device_data.get(DA.TEMPERATURE),
-                device_data.get(DA.TARGET_TEMPERATURE),
-                device_data.get(DA.FUNCTION),
-                device_data.get("is_heating")
-            )
 
             # Notify HA of the update
             self.async_set_updated_data(self.device_data)
@@ -282,10 +307,6 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
     def _process_base_info_update(
             self, serial: str, device_data: Dict[str, Any]) -> None:
         """Process base_info update for a device."""
-        _LOGGER.info(
-            "Received base_info for device %s: %s",
-            serial,
-            device_data["base_info"])
         self.devices_with_base_info[serial] = device_data["base_info"]
         self.device_data[serial].update({
             "base_info": device_data["base_info"],
