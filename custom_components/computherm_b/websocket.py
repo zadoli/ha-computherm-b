@@ -208,6 +208,7 @@ class WebSocketClient:
             auth_token)
         self.websocket = None
         self._ws_task: Optional[asyncio.Task] = None
+        self._watchdog_task: Optional[asyncio.Task] = None
         self._sid: Optional[str] = None
         self._ping_interval: Optional[float] = None
         self._last_message_time: Optional[datetime] = None
@@ -219,7 +220,11 @@ class WebSocketClient:
         self._connecting: bool = False
         # Flag to indicate token refresh is in progress
         self._token_refresh_in_progress: bool = False
+        # Flag to track if a namespace disconnect message was received
+        self._namespace_disconnect_received: bool = False
         self._message_handler = WebSocketMessageHandler()
+        # Event to signal a forced reconnection
+        self._force_reconnect = asyncio.Event()
 
     async def start(self) -> None:
         """Start the WebSocket connection."""
@@ -230,6 +235,14 @@ class WebSocketClient:
         self._stopping = False
         self._connecting = True
         try:
+            # Reset the force reconnect event
+            self._force_reconnect.clear()
+            
+            # Start the watchdog task if it's not running
+            if not self._watchdog_task or self._watchdog_task.done():
+                self._watchdog_task = asyncio.create_task(self._connection_watchdog())
+                
+            # Start the main websocket task
             if not self._ws_task or self._ws_task.done():
                 self._ws_task = asyncio.create_task(self._websocket_handler())
         finally:
@@ -261,25 +274,88 @@ class WebSocketClient:
                 pass
             finally:
                 self._ws_task = None
+                
+        # Cancel and cleanup watchdog task
+        if self._watchdog_task and not self._watchdog_task.done():
+            self._watchdog_task.cancel()
+            try:
+                await self._watchdog_task
+            except asyncio.CancelledError:
+                pass
+            finally:
+                self._watchdog_task = None
+
+    async def _connection_watchdog(self) -> None:
+        """Monitor the connection and force reconnection if it becomes stale."""
+        while not self._stopping:
+            # Check if we have an active connection and ping interval
+            if (self.websocket is not None and 
+                self._last_message_time is not None and 
+                self._ping_interval is not None):
+                
+                # Calculate time since last message
+                time_since_last_message = (
+                    datetime.now() - self._last_message_time).total_seconds()
+                ping_timeout = self._ping_interval * 1.2  # Add 20% to the ping interval
+
+                _LOGGER.debug("Watchdog checking connection status... (last message time: %.1f)", time_since_last_message)
+                
+                # If we've exceeded the timeout, force a reconnection
+                if time_since_last_message > ping_timeout:
+                    _LOGGER.warning(
+                        "Watchdog detected stale connection: %.1f sec since last message (timeout: %.1f seconds). Forcing reconnection...",
+                        time_since_last_message,
+                        ping_timeout)
+                    
+                    # Close the websocket to force a reconnection
+                    if self.websocket:
+                        try:
+                            # Use create_task to avoid blocking the watchdog
+                            asyncio.create_task(self.websocket.close())
+                        except Exception as error:
+                            _LOGGER.debug("Error closing stale websocket: %s", error)
+            
+            # Check every 5 seconds (or half the ping interval if available)
+            check_interval = 5.0
+            if self._ping_interval is not None:
+                check_interval = min(self._ping_interval / 2, 5.0)
+                
+            await asyncio.sleep(check_interval)
 
     async def _websocket_handler(self) -> None:
         """Handle WebSocket connection with improved exponential backoff."""
         while not self._stopping:
             try:
+                # Reset namespace disconnect flag before starting a new connection
+                self._namespace_disconnect_received = False
                 await self._handle_connection()
             except ConnectionClosed as error:
-                if error.rcvd.code in (1000, 1005):
-                    _LOGGER.debug("WebSocket connection closed normally")
+                # Check if error.rcvd is an object with a code attribute or an integer
+                if hasattr(error, 'rcvd'):
+                    if hasattr(error.rcvd, 'code') and error.rcvd.code in (1000, 1005):
+                        _LOGGER.debug("WebSocket connection closed normally")
+                    else:
+                        _LOGGER.warning("WebSocket connection closed: %s", error)
                 else:
-                    _LOGGER.warning("WebSocket connection closed: %s", error)
+                    # This is likely part of normal disconnection after a namespace disconnect
+                    if self._namespace_disconnect_received:
+                        _LOGGER.debug("WebSocket connection closed after namespace disconnect")
+                    else:
+                        _LOGGER.warning("WebSocket connection closed with unexpected format: %s", error)
             except Exception as error:
                 # For error code -3 ("Try again"), only set error state after
                 # backoff time
                 is_try_again_error = hasattr(
                     error, 'errno') and error.errno == -3
 
+                # Check if this error is related to the "int is not iterable" issue
+                is_int_not_iterable = "argument of type 'int' is not iterable" in str(error)
+                
                 if is_try_again_error:
                     _LOGGER.info("DEBUG WebSocket error: %s", error)
+                elif is_int_not_iterable and self._namespace_disconnect_received:
+                    # This is the specific error we're handling - it's part of normal disconnection
+                    _LOGGER.debug("Expected WebSocket closure error after namespace disconnect: %s", error)
                 else:
                     _LOGGER.error("WebSocket error: %s", error)
 
@@ -470,8 +546,54 @@ class WebSocketClient:
                         await self.websocket.close()
                     return  # Exit to trigger reconnection
 
-            message = await self.websocket.recv()
-            await self._handle_message(message)
+            # Use wait_for with a timeout to allow checking for forced reconnection
+            try:
+                # Set a reasonable timeout for the recv operation
+                # This allows us to periodically check if we need to force reconnect
+                # without blocking indefinitely on recv()
+                recv_timeout = 30.0  # 30 seconds timeout
+                if self._ping_interval is not None:
+                    # Use ping interval as a guide for timeout, but don't go below 5 seconds
+                    recv_timeout = max(self._ping_interval, 5.0)
+                
+                # Wait for either a message or the timeout
+                message = await asyncio.wait_for(self.websocket.recv(), timeout=recv_timeout)
+                await self._handle_message(message)
+                
+            except asyncio.TimeoutError:
+                # No message received within timeout, check if connection is still valid
+                if self._last_message_time is not None and self._ping_interval is not None:
+                    time_since_last_message = (
+                        datetime.now() - self._last_message_time).total_seconds()
+                    ping_timeout = self._ping_interval * 1.2
+                    
+                    if time_since_last_message > ping_timeout:
+                        _LOGGER.warning(
+                            "No message received for %.1f seconds (timeout: %.1f seconds). Reconnecting...",
+                            time_since_last_message,
+                            ping_timeout)
+                        if self.websocket:
+                            await self.websocket.close()
+                        return  # Exit to trigger reconnection
+                    else:
+                        # Connection still valid, continue waiting for messages
+                        _LOGGER.debug(
+                            "No message received for %.1f seconds, but still within timeout (%.1f seconds). Continuing...",
+                            time_since_last_message,
+                            ping_timeout)
+                        continue
+                else:
+                    # No last message time or ping interval, continue waiting
+                    continue
+            except ConnectionClosed as error:
+                if error.rcvd.code not in (1000, 1005):
+                    _LOGGER.warning("WebSocket connection closed: %s", error)
+                return  # Exit to trigger reconnection
+            except Exception as error:
+                _LOGGER.error("Error receiving message: %s", error)
+                if self.websocket:
+                    await self.websocket.close()
+                return  # Exit to trigger reconnection
 
     async def _handle_message(self, message: str) -> None:
         """Handle incoming WebSocket message."""
@@ -518,6 +640,8 @@ class WebSocketClient:
             _LOGGER.debug(
                 "After %.1f sec, namespace disconnect message received: %s",
                 time_since_last_message, message)
+            # Set the flag to indicate we received a namespace disconnect message
+            self._namespace_disconnect_received = True
             return
 
         result = self._message_handler.handle_websocket_message(message)
