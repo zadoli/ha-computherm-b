@@ -12,14 +12,8 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import (
-    API_BASE_URL,
-    API_DEVICE_CONTROL_ENDPOINT,
-    AVAILABLE_FUNCTIONS,
-    AVAILABLE_MODES,
-    COORDINATOR,
-    DOMAIN,
-)
+from .const import (API_BASE_URL, API_DEVICE_CONTROL_ENDPOINT,
+                    AVAILABLE_FUNCTIONS, AVAILABLE_MODES, COORDINATOR, DOMAIN)
 from .const import DeviceAttributes as DA
 from .coordinator import ComputhermDataUpdateCoordinator
 

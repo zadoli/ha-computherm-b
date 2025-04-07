@@ -9,17 +9,11 @@ from aiohttp import ClientError, ClientResponseError, ClientSession
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.update_coordinator import (
-    DataUpdateCoordinator,
-    UpdateFailed,
-)
+from homeassistant.helpers.update_coordinator import (DataUpdateCoordinator,
+                                                      UpdateFailed)
 
-from .const import (
-    API_BASE_URL,
-    API_DEVICES_ENDPOINT,
-    API_LOGIN_ENDPOINT,
-    DOMAIN,
-)
+from .const import (API_BASE_URL, API_DEVICES_ENDPOINT, API_LOGIN_ENDPOINT,
+                    DOMAIN)
 from .const import DeviceAttributes as DA
 from .websocket import WebSocketClient
 

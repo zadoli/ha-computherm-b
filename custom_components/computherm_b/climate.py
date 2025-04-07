@@ -5,12 +5,9 @@ import asyncio
 import logging
 from typing import Any, Final, Optional
 
-from homeassistant.components.climate import (
-    ClimateEntity,
-    ClimateEntityFeature,
-    HVACAction,
-    HVACMode,
-)
+from homeassistant.components.climate import (ClimateEntity,
+                                              ClimateEntityFeature, HVACAction,
+                                              HVACMode)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
@@ -18,12 +15,8 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import (
-    API_BASE_URL,
-    API_DEVICE_CONTROL_ENDPOINT,
-    COORDINATOR,
-    DOMAIN,
-)
+from .const import (API_BASE_URL, API_DEVICE_CONTROL_ENDPOINT, COORDINATOR,
+                    DOMAIN)
 from .const import DeviceAttributes as DA
 from .coordinator import ComputhermDataUpdateCoordinator
 
