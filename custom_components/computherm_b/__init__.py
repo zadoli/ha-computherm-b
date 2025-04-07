@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import logging
 
-from custom_components.computherm_b.const import COORDINATOR, DOMAIN
-from custom_components.computherm_b.coordinator import \
-    ComputhermDataUpdateCoordinator
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+
+from custom_components.computherm_b.const import COORDINATOR, DOMAIN
+from custom_components.computherm_b.coordinator import \
+    ComputhermDataUpdateCoordinator
 
 # ANSI color codes
 BLUE = '\033[94m'
