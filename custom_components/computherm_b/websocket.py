@@ -237,11 +237,11 @@ class WebSocketClient:
         try:
             # Reset the force reconnect event
             self._force_reconnect.clear()
-            
+
             # Start the watchdog task if it's not running
             if not self._watchdog_task or self._watchdog_task.done():
                 self._watchdog_task = asyncio.create_task(self._connection_watchdog())
-                
+
             # Start the main websocket task
             if not self._ws_task or self._ws_task.done():
                 self._ws_task = asyncio.create_task(self._websocket_handler())
@@ -274,7 +274,7 @@ class WebSocketClient:
                 pass
             finally:
                 self._ws_task = None
-                
+
         # Cancel and cleanup watchdog task
         if self._watchdog_task and not self._watchdog_task.done():
             self._watchdog_task.cancel()
@@ -289,24 +289,27 @@ class WebSocketClient:
         """Monitor the connection and force reconnection if it becomes stale."""
         while not self._stopping:
             # Check if we have an active connection and ping interval
-            if (self.websocket is not None and 
-                self._last_message_time is not None and 
-                self._ping_interval is not None):
-                
+            if (self.websocket is not None and
+                self._last_message_time is not None and
+                    self._ping_interval is not None):
+
                 # Calculate time since last message
                 time_since_last_message = (
                     datetime.now() - self._last_message_time).total_seconds()
                 ping_timeout = self._ping_interval * 1.2  # Add 20% to the ping interval
 
-                _LOGGER.debug("Watchdog checking connection status... (last message time: %.1f)", time_since_last_message)
-                
+                _LOGGER.debug(
+                    "Watchdog checking connection status... (last message time: %.1f)",
+                    time_since_last_message)
+
                 # If we've exceeded the timeout, force a reconnection
                 if time_since_last_message > ping_timeout:
                     _LOGGER.warning(
-                        "Watchdog detected stale connection: %.1f sec since last message (timeout: %.1f seconds). Forcing reconnection...",
+                        "Watchdog detected stale connection: %.1f sec since last message " +
+                        "(timeout: %.1f seconds). Forcing reconnection...",
                         time_since_last_message,
                         ping_timeout)
-                    
+
                     # Close the websocket to force a reconnection
                     if self.websocket:
                         try:
@@ -314,12 +317,12 @@ class WebSocketClient:
                             asyncio.create_task(self.websocket.close())
                         except Exception as error:
                             _LOGGER.debug("Error closing stale websocket: %s", error)
-            
+
             # Check every 5 seconds (or half the ping interval if available)
             check_interval = 5.0
             if self._ping_interval is not None:
                 check_interval = min(self._ping_interval / 2, 5.0)
-                
+
             await asyncio.sleep(check_interval)
 
     async def _websocket_handler(self) -> None:
@@ -350,7 +353,7 @@ class WebSocketClient:
 
                 # Check if this error is related to the "int is not iterable" issue
                 is_int_not_iterable = "argument of type 'int' is not iterable" in str(error)
-                
+
                 if is_try_again_error:
                     _LOGGER.info("DEBUG WebSocket error: %s", error)
                 elif is_int_not_iterable and self._namespace_disconnect_received:
@@ -555,18 +558,18 @@ class WebSocketClient:
                 if self._ping_interval is not None:
                     # Use ping interval as a guide for timeout, but don't go below 5 seconds
                     recv_timeout = max(self._ping_interval, 5.0)
-                
+
                 # Wait for either a message or the timeout
                 message = await asyncio.wait_for(self.websocket.recv(), timeout=recv_timeout)
                 await self._handle_message(message)
-                
+
             except asyncio.TimeoutError:
                 # No message received within timeout, check if connection is still valid
                 if self._last_message_time is not None and self._ping_interval is not None:
                     time_since_last_message = (
                         datetime.now() - self._last_message_time).total_seconds()
                     ping_timeout = self._ping_interval * 1.2
-                    
+
                     if time_since_last_message > ping_timeout:
                         _LOGGER.warning(
                             "No message received for %.1f seconds (timeout: %.1f seconds). Reconnecting...",
@@ -578,7 +581,8 @@ class WebSocketClient:
                     else:
                         # Connection still valid, continue waiting for messages
                         _LOGGER.debug(
-                            "No message received for %.1f seconds, but still within timeout (%.1f seconds). Continuing...",
+                            "No message received for %.1f seconds, but still within timeout (%.1f seconds). " +
+                            "Continuing...",
                             time_since_last_message,
                             ping_timeout)
                         continue
