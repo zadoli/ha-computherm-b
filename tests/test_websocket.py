@@ -26,7 +26,7 @@ async def test_handle_message_event_1():
     # Create WebSocketClient instance
     client = WebSocketClient(
         auth_token="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NTkzMjIxMjEsImV4cCI6MTc1OTQ5NDkyMSwic3ViIjoiNjA2ODYifQ.O4V7dfohNwGtYuNcR2O9SSiz3QY8dkzSpu6JGtmUxBo",
-        device_serials=["1111111111","2222222222"],
+        device_serials=["1111111111", "2222222222"],
         data_callback=data_callback,
     )
 
@@ -36,6 +36,7 @@ async def test_handle_message_event_1():
 
     # Call the method under test
     await client._handle_message(message)
+
 
 @pytest.mark.asyncio
 async def test_handle_message_event_2():
@@ -53,7 +54,7 @@ async def test_handle_message_event_2():
     # Create WebSocketClient instance
     client = WebSocketClient(
         auth_token="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NTkzMjIxMjEsImV4cCI6MTc1OTQ5NDkyMSwic3ViIjoiNjA2ODYifQ.O4V7dfohNwGtYuNcR2O9SSiz3QY8dkzSpu6JGtmUxBo",
-        device_serials=["1111111111","2222222222"],
+        device_serials=["1111111111", "2222222222"],
         data_callback=data_callback,
     )
 

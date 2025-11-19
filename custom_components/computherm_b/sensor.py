@@ -120,15 +120,15 @@ def _add_core_sensors(
     """Add core sensor entities."""
     # Add temperature sensors - support for multiple sensors
     sensor_readings = device_data.get(DA.SENSOR_READINGS, {})
-    
+
     for sensor_key, sensor_info in sensor_readings.items():
         # Only create temperature sensors
         if sensor_info.get("type") != "TEMPERATURE":
             continue
-            
+
         # Create unique identifier for tracking
         entity_tracking_key = f"{device_id}_{sensor_key}"
-        
+
         if entity_tracking_key not in existing_entities["temperature"]:
             _LOGGER.info(
                 "Creating temperature sensor entity for device %s, sensor %s",
@@ -138,7 +138,7 @@ def _add_core_sensors(
                 ComputhermTemperatureSensor(
                     coordinator, device_id, sensor_key))
             existing_entities["temperature"].add(entity_tracking_key)
-    
+
     # Fallback: if no sensor_readings, create default temperature sensor for backward compatibility
     if not sensor_readings and device_id not in existing_entities["temperature"]:
         _LOGGER.info(
@@ -178,14 +178,14 @@ def _add_diagnostic_sensors(
     """Add diagnostic sensor entities."""
     # Add sensor-specific diagnostic sensors
     sensor_readings = device_data.get(DA.SENSOR_READINGS, {})
-    
+
     for sensor_key, sensor_info in sensor_readings.items():
         # Only create diagnostic sensors for temperature sensors
         if sensor_info.get("type") != "TEMPERATURE":
             continue
-        
+
         sensor_name = sensor_info.get("name", sensor_key)
-        
+
         # Create battery sensor if available
         if "battery" in sensor_info:
             entity_tracking_key = f"{device_id}_{sensor_key}_battery"
@@ -194,7 +194,7 @@ def _add_diagnostic_sensors(
                 entities_to_add.append(
                     ComputhermBatterySensor(coordinator, device_id, sensor_key, sensor_name))
                 existing_entities["battery"].add(entity_tracking_key)
-        
+
         # Create RSSI sensor if available
         if "rssi" in sensor_info:
             entity_tracking_key = f"{device_id}_{sensor_key}_rssi"
@@ -203,7 +203,7 @@ def _add_diagnostic_sensors(
                 entities_to_add.append(
                     ComputhermRSSISensor(coordinator, device_id, sensor_key, sensor_name))
                 existing_entities["rssi"].add(entity_tracking_key)
-        
+
         # Create RSSI Level sensor if available
         if "rssi_level" in sensor_info:
             entity_tracking_key = f"{device_id}_{sensor_key}_rssi_level"
@@ -212,20 +212,20 @@ def _add_diagnostic_sensors(
                 entities_to_add.append(
                     ComputhermRSSILevelSensor(coordinator, device_id, sensor_key, sensor_name))
                 existing_entities["rssi_level"].add(entity_tracking_key)
-    
+
     # Add device-level diagnostic sensors (from base_info, without sensor name)
     # Device-level RSSI sensor if available
     if DA.RSSI in device_data and device_id not in existing_entities["rssi"]:
         _LOGGER.info("Creating device-level rssi sensor for device %s", device_id)
         entities_to_add.append(ComputhermRSSISensor(coordinator, device_id))
         existing_entities["rssi"].add(device_id)
-    
+
     # Device-level RSSI Level sensor if available
     if DA.RSSI_LEVEL in device_data and device_id not in existing_entities["rssi_level"]:
         _LOGGER.info("Creating device-level rssi_level sensor for device %s", device_id)
         entities_to_add.append(ComputhermRSSILevelSensor(coordinator, device_id))
         existing_entities["rssi_level"].add(device_id)
-    
+
     # Add device-level source sensor if available
     if DA.SOURCE in device_data and device_id not in existing_entities["source"]:
         _LOGGER.info("Creating source sensor for device %s", device_id)
@@ -305,13 +305,13 @@ class ComputhermSensorBase(CoordinatorEntity):
         # Safety check for available_sensor_ids
         if 'available_sensor_ids' not in device_data or not device_data['available_sensor_ids']:
             return self._get_default_name()
-        
+
         sensor_id = str(device_data['available_sensor_ids'][0])
-        
+
         # Safety check for sensors dictionary
         if 'sensors' not in device_data or sensor_id not in device_data['sensors']:
             return self._get_default_name()
-        
+
         base_name = device_data["sensors"][sensor_id].get(
             "name", self._get_default_name())
         return self._process_entity_name(base_name)
@@ -358,18 +358,18 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
     def _setup_entity_info(self) -> None:
         """Set up entity information for temperature sensor."""
         device_data = self.coordinator.device_data.get(self.device_id, {})
-        
+
         # Multi-sensor case
         if self.sensor_key and DA.SENSOR_READINGS in device_data:
             sensor_readings = device_data[DA.SENSOR_READINGS]
             if self.sensor_key in sensor_readings:
                 sensor_info = sensor_readings[self.sensor_key]
                 sensor_name = sensor_info.get("name", self.sensor_key)
-                
+
                 # Set unique_id with sensor_key to differentiate multiple sensors
                 self._attr_unique_id = f"{DOMAIN}_{self.device_id}_temperature_{self.sensor_key}"
                 self._attr_name = sensor_name
-                
+
                 _LOGGER.info(
                     "Temperature entity initialized - ID: %s, Name: %s, Sensor Key: %s",
                     self._attr_unique_id,
@@ -377,7 +377,7 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
                     self.sensor_key
                 )
                 return
-        
+
         # Fallback to old behavior for backward compatibility
         if not device_data or 'available_sensor_ids' not in device_data:
             _LOGGER.error(
@@ -414,12 +414,12 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
                 if reading is not None:
                     return float(reading)
                 return None
-        
+
         # Fallback to old behavior for backward compatibility
         if self.device_data.get(DA.TEMPERATURE) is not None:
             return float(self.device_data[DA.TEMPERATURE])
         return None
-    
+
     @property
     def available(self) -> bool:
         """Return if entity is available."""
@@ -429,32 +429,32 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
             if self.sensor_key in sensor_readings:
                 # Sensor is available if device is online and it has data
                 return self.device_data.get(DA.ONLINE, False) and sensor_readings[self.sensor_key].get("reading") is not None
-        
+
         # Fallback to device online status
         return self.device_data.get(DA.ONLINE, False)
-    
+
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return additional state attributes for multi-sensor support."""
         if not self.sensor_key:
             return None
-            
+
         sensor_readings = self.device_data.get(DA.SENSOR_READINGS, {})
         if self.sensor_key not in sensor_readings:
             return None
-            
+
         sensor_info = sensor_readings[self.sensor_key]
         attributes = {}
-        
+
         # Add sensor source
         if "src" in sensor_info:
             attributes["source"] = sensor_info["src"]
-        
+
         # Add diagnostic info if available
         for attr in ["battery", "rssi", "rssi_level"]:
             if attr in sensor_info:
                 attributes[attr] = sensor_info[attr]
-        
+
         return attributes if attributes else None
 
 
@@ -538,7 +538,7 @@ class ComputhermBatterySensor(ComputhermDiagnosticSensorBase):
                     except (ValueError, AttributeError):
                         return None
             return None
-        
+
         # Device-level case (legacy)
         battery = self.device_data.get(DA.BATTERY)
         if battery is not None:
@@ -547,7 +547,7 @@ class ComputhermBatterySensor(ComputhermDiagnosticSensorBase):
             except (ValueError, AttributeError):
                 return None
         return None
-    
+
     @property
     def available(self) -> bool:
         """Return if entity is available."""
@@ -556,7 +556,7 @@ class ComputhermBatterySensor(ComputhermDiagnosticSensorBase):
             sensor_readings = self.device_data.get(DA.SENSOR_READINGS, {})
             if self.sensor_key in sensor_readings:
                 return self.device_data.get(DA.ONLINE, False) and "battery" in sensor_readings[self.sensor_key]
-        
+
         # Fallback to device online status
         return self.device_data.get(DA.ONLINE, False)
 
@@ -611,7 +611,7 @@ class ComputhermRSSISensor(ComputhermDiagnosticSensorBase):
                     except (ValueError, IndexError, AttributeError):
                         return None
             return None
-        
+
         # Device-level case (legacy)
         rssi = self.device_data.get(DA.RSSI)
         if rssi is not None:
@@ -620,7 +620,7 @@ class ComputhermRSSISensor(ComputhermDiagnosticSensorBase):
             except (ValueError, IndexError):
                 return None
         return None
-    
+
     @property
     def available(self) -> bool:
         """Return if entity is available."""
@@ -629,7 +629,7 @@ class ComputhermRSSISensor(ComputhermDiagnosticSensorBase):
             sensor_readings = self.device_data.get(DA.SENSOR_READINGS, {})
             if self.sensor_key in sensor_readings:
                 return self.device_data.get(DA.ONLINE, False) and "rssi" in sensor_readings[self.sensor_key]
-        
+
         # Fallback to device online status
         return self.device_data.get(DA.ONLINE, False)
 
@@ -678,10 +678,10 @@ class ComputhermRSSILevelSensor(ComputhermSensorBase, SensorEntity):
             if self.sensor_key in sensor_readings:
                 return sensor_readings[self.sensor_key].get("rssi_level")
             return None
-        
+
         # Device-level case (legacy)
         return self.device_data.get(DA.RSSI_LEVEL)
-    
+
     @property
     def available(self) -> bool:
         """Return if entity is available."""
@@ -690,7 +690,7 @@ class ComputhermRSSILevelSensor(ComputhermSensorBase, SensorEntity):
             sensor_readings = self.device_data.get(DA.SENSOR_READINGS, {})
             if self.sensor_key in sensor_readings:
                 return self.device_data.get(DA.ONLINE, False) and "rssi_level" in sensor_readings[self.sensor_key]
-        
+
         # Fallback to device online status
         return self.device_data.get(DA.ONLINE, False)
 

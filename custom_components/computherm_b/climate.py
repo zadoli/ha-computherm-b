@@ -193,17 +193,17 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         """Return the current operation mode."""
         if not self.device_data.get(DA.ONLINE, False):
             return HVACMode.OFF
-        
+
         mode = self.device_data.get(DA.MODE)
-        
+
         # If mode is SCHEDULE, return AUTO
         if mode == "schedule":
             return HVACMode.AUTO
-        
+
         # If mode is OFF, return OFF
         if mode == "off":
             return HVACMode.OFF
-        
+
         # Otherwise, determine based on function (MANUAL mode)
         function = self.device_data.get(DA.FUNCTION)
         return HVACMode.COOL if function == "cooling" else HVACMode.HEAT
