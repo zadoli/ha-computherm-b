@@ -93,7 +93,7 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     _attr_translation_key = DOMAIN
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_icon = "mdi:thermostat"
-    _attr_hvac_modes = [HVACMode.HEAT, HVACMode.COOL, HVACMode.OFF]
+    _attr_hvac_modes = [HVACMode.HEAT, HVACMode.COOL, HVACMode.OFF, HVACMode.AUTO]
     _attr_supported_features = SUPPORT_FLAGS
     _attr_target_temperature_step = 0.1
 
@@ -173,7 +173,11 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     @property
     def current_temperature(self) -> float | None:
         """Return the current temperature."""
-        if self.device_data.get(DA.TEMPERATURE) is not None:
+        # Use current_temperature which is determined from the controlling sensor
+        if self.device_data.get(DA.CURRENT_TEMPERATURE) is not None:
+            return float(self.device_data[DA.CURRENT_TEMPERATURE])
+        # Fallback to DA.TEMPERATURE for backward compatibility
+        elif self.device_data.get(DA.TEMPERATURE) is not None:
             return float(self.device_data[DA.TEMPERATURE])
         return None
 
@@ -187,11 +191,20 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     @property
     def hvac_mode(self) -> HVACMode:
         """Return the current operation mode."""
-        if not self.device_data.get(
-                DA.ONLINE,
-                False) or "off" == self.device_data.get(
-                DA.MODE):
+        if not self.device_data.get(DA.ONLINE, False):
             return HVACMode.OFF
+        
+        mode = self.device_data.get(DA.MODE)
+        
+        # If mode is SCHEDULE, return AUTO
+        if mode == "schedule":
+            return HVACMode.AUTO
+        
+        # If mode is OFF, return OFF
+        if mode == "off":
+            return HVACMode.OFF
+        
+        # Otherwise, determine based on function (MANUAL mode)
         function = self.device_data.get(DA.FUNCTION)
         return HVACMode.COOL if function == "cooling" else HVACMode.HEAT
 
@@ -321,6 +334,7 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         """Get operation mode parameters based on HVAC mode."""
         mode_map = {
             HVACMode.OFF: ("mode", "OFF"),
+            HVACMode.AUTO: ("mode", "SCHEDULE"),
             HVACMode.HEAT: ("function", "HEATING"),
             HVACMode.COOL: ("function", "COOLING"),
         }
@@ -341,7 +355,10 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
             operation: mode
         }
 
-        if "off" == self.device_data.get(DA.MODE):
+        # When setting HEAT or COOL (function), also set mode to MANUAL
+        if operation == "function":
+            request_data["mode"] = "MANUAL"
+        elif "off" == self.device_data.get(DA.MODE):
             request_data["mode"] = "MANUAL"
 
         _LOGGER.debug(

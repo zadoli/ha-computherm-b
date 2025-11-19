@@ -1,0 +1,76 @@
+[
+  "event",
+  {
+    "access_rules": {
+      "moderate": 1
+    },
+    "access_status": "active",
+    "base_info": {
+      "assigned_partner": null,
+      "brand": null,
+      "device_type": "bboil-classic",
+      "fw_ver": "3355",
+      "group_color": null,
+      "id": 31859,
+      "name": "Fűtésvezérlő",
+      "serial_number": "1111111111",
+      "timezone": "Europe/Budapest",
+      "type": "raw",
+      "user": {
+        "email": "random@mail.com",
+        "id": 60686,
+        "name": "John Done",
+        "phone": ""
+      },
+      "user_id": 60686
+    },
+    "online": true,
+    "readings": [
+      {
+        "err": false,
+        "id": 1,
+        "name": "Kimenő cső",
+        "notification_limits": {
+          "max": 45,
+          "min": 15
+        },
+        "notification_methods": {
+          "email": false,
+          "push": false
+        },
+        "reading": 25.54,
+        "sensor": 1,
+        "src": "RELAY",
+        "type": "TEMPERATURE"
+      }
+    ],
+    "relays": [
+      {
+        "active_schedule": 1,
+        "boost_active": false,
+        "boost_remaining": 0,
+        "boost_set_point": 27.5,
+        "configs": {
+          "precision": 1,
+          "setpoint_max": 40,
+          "setpoint_min": 15
+        },
+        "controlling_reading": 25.54,
+        "controlling_src": "RELAY",
+        "err": false,
+        "function": "COOLING",
+        "hysteresis_high": 0,
+        "hysteresis_low": 0,
+        "manual_set_point": 21,
+        "mode": "MANUAL",
+        "name": null,
+        "relay": 1,
+        "relay_state": "ON",
+        "schedule_set_point": "OFF",
+        "type": "THERMOSTAT"
+      }
+    ],
+    "system": {
+    }
+  }
+]

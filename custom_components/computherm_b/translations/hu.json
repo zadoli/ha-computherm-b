@@ -58,7 +58,8 @@
                 "name": "Forrás",
                 "state": {
                     "relay": "Relé",
-                    "remote": "Vezetéknélküli érzékelő"
+                    "remote": "Vezetéknélküli érzékelő",
+                    "onboard": "Beépített érzékelő"
                 }
             },
             "relay": {

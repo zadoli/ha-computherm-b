@@ -36,7 +36,8 @@
                 "name": "Source",
                 "state": {
                     "relay": "Relay",
-                    "remote": "Remote sensor"
+                    "remote": "Remote sensor",
+                    "onboard": "Beépített érzékelő"
                 }
             },
             "relay": {

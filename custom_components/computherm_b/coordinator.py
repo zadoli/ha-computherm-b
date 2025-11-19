@@ -296,10 +296,14 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             **self.devices[serial],
             DA.TEMPERATURE: None,
             DA.TARGET_TEMPERATURE: None,
+            DA.CURRENT_TEMPERATURE: None,
             DA.FUNCTION: None,
             DA.MODE: None,
             DA.RELAY_STATE: None,
             DA.ONLINE: False,
+            DA.SENSOR_READINGS: {},
+            DA.CONTROLLING_SRC: None,
+            DA.CONTROLLING_SENSOR: None,
             "is_heating": False,
             "base_info": None,
         }
@@ -308,13 +312,8 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             self, serial: str, device_data: Dict[str, Any]) -> None:
         """Process base_info update for a device."""
         self.devices_with_base_info[serial] = device_data["base_info"]
-        self.device_data[serial].update({
-            "base_info": device_data["base_info"],
-            "available_sensor_ids": device_data["available_sensor_ids"],
-            "available_relay_ids": device_data["available_relay_ids"],
-            "sensors": device_data["sensors"],
-            "relays": device_data["relays"],
-        })
+        # Update with all data from device_data, including sensor_readings and current_temperature
+        self.device_data[serial].update(device_data)
 
     def _process_state_update(
             self, serial: str, device_data: Dict[str, Any]) -> None:

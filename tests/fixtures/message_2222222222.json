@@ -1,0 +1,161 @@
+[
+    "event",
+    {
+        "access_rules": {
+            "moderate": 1
+        },
+        "access_status": "active",
+        "base_info": {
+            "assigned_partner": null,
+            "brand": null,
+            "device_type": "tft32",
+            "fw_ver": "292",
+            "group_color": null,
+            "id": 30939,
+            "name": "FŰTÉS MIJÓ",
+            "serial_number": "2222222222",
+            "timezone": "Europe/Budapest",
+            "type": "tft32",
+            "user": {
+                "email": "random2@mail.com",
+                "id": 30348,
+                "name": "MJ",
+                "phone": "+3630123456"
+            },
+            "user_id": 30348
+        },
+        "online": true,
+        "readings": [
+            {
+                "err": false,
+                "name": "HŐMÉRSÉKLET",
+                "notification_limits": {
+                    "max": null,
+                    "min": null
+                },
+                "notification_methods": {
+                    "email": false,
+                    "push": false
+                },
+                "reading": 22.2,
+                "sensor": 1,
+                "src": "ONBOARD",
+                "type": "TEMPERATURE"
+            },
+            {
+                "err": false,
+                "name": " PÁRATARTALOM",
+                "notification_limits": {
+                    "max": null,
+                    "min": null
+                },
+                "notification_methods": {
+                    "email": false,
+                    "push": false
+                },
+                "reading": 57.62,
+                "sensor": 1,
+                "src": "ONBOARD",
+                "type": "HUMIDITY"
+            },
+            {
+                "err": false,
+                "id": 1,
+                "name": "KAZÁN  HŐMÉRSÉKLET",
+                "notification_limits": {
+                    "max": null,
+                    "min": null
+                },
+                "notification_methods": {
+                    "email": false,
+                    "push": false
+                },
+                "reading": 59.12,
+                "rssi": "-43 dB",
+                "rssi_level": "STRONG",
+                "sensor": 1,
+                "src": "RELAY",
+                "type": "TEMPERATURE"
+            },
+            {
+                "battery": "0%",
+                "err": false,
+                "id": 3,
+                "name": "RF Hőmérséklet 1",
+                "notification_limits": {
+                    "max": null,
+                    "min": null
+                },
+                "notification_methods": {
+                    "email": false,
+                    "push": false
+                },
+                "reading": 0,
+                "rssi": "0 dB",
+                "rssi_level": "STRONG",
+                "sensor": 1,
+                "src": "REMOTE",
+                "type": "TEMPERATURE"
+            },
+            {
+                "battery": "0%",
+                "err": false,
+                "id": 4,
+                "name": "RF Hőmérséklet 1",
+                "notification_limits": {
+                    "max": null,
+                    "min": null
+                },
+                "notification_methods": {
+                    "email": false,
+                    "push": false
+                },
+                "reading": 0,
+                "rssi": "0 dB",
+                "rssi_level": "STRONG",
+                "sensor": 1,
+                "src": "REMOTE",
+                "type": "TEMPERATURE"
+            }
+        ],
+        "relays": [
+            {
+                "active_schedule": null,
+                "boost_active": false,
+                "boost_remaining": 0,
+                "boost_set_point": 23.3,
+                "configs": {
+                    "setpoint_max": 26
+                },
+                "controlling_sensor": 1,
+                "controlling_src": "ONBOARD",
+                "err": false,
+                "function": "HEATING",
+                "hysteresis_high": 0.1,
+                "hysteresis_low": 0.1,
+                "input_calibration": 0,
+                "manual_set_point": 10,
+                "mode": "SCHEDULE",
+                "relay": 1,
+                "relay_state": "ON",
+                "rssi": "-43 dB",
+                "rssi_level": "STRONG",
+                "schedule_set_point": 22.5,
+                "type": "THERMOSTAT"
+            }
+        ],
+        "system": {
+            "fw_time": "Mon Nov 17 17:41:00 2025",
+            "fw_ver": 292,
+            "rssi": "-70 dB",
+            "rssi_level": "STRONG",
+            "tft_ver": "1.0",
+            "uptime": {
+                "days": 9,
+                "hours": 20,
+                "minutes": 30,
+                "seconds": 31
+            }
+        }
+    }
+]

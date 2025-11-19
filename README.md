@@ -7,13 +7,35 @@ Home Assistant integration for Computherm B Series WiFi thermostats. It provides
 
 ## Features
 
-- Support for multiple Computherm B Series devices under one account
-- Real-time temperature and humidity (if supported) monitoring
-- Target temperature control
-- Function control (Heat/Cool/Off)
-- Operation mode control (Auto/Manual/Off)
-- Regular status updates via cloud polling
-- Automatic device discovery
+### Climate Control (Thermostat)
+- **HVAC Modes**: Heat, Cool, Auto (Schedule), and Off
+- **Precise Temperature Control**: Set target temperature with 0.1°C precision
+- **Current Temperature & Humidity**: Real-time monitoring of room conditions
+- **HVAC Action Indication**: Know when your device is actively heating, cooling, or idle
+- **Configurable Temperature Limits**: Min/max temperature ranges based on device configuration
+
+### Sensors
+- **Temperature Sensors**: 
+  - Support for multiple temperature sensors per device
+  - Individual sensor tracking with unique names
+- **Humidity Sensor**: Monitor relative humidity (if supported by device)
+- **Relay State**: Binary sensor showing whether heating/cooling relay is active
+- **Diagnostic Sensors**:
+  - Battery/Accumulator level (%) for wireless sensors
+  - WiFi signal strength (RSSI in dB)
+  - Signal level indicator
+  - Sensor source information
+
+### Control Entities
+- **Mode Selector**: Switch between Manual, Schedule (Auto), and Off modes
+- **Function Selector**: Choose between Heating and Cooling operation
+
+### System Features
+- **Multi-Device Support**: Control multiple Computherm B Series devices from one account
+- **Automatic Discovery**: Devices are automatically detected and configured
+- **Real-Time Updates**: WebSocket support for instant status updates
+- **Cloud-Based**: Works through the official Computherm B Series cloud API
+- **Robust Error Handling**: Graceful handling of network issues and API errors
 
 ## Installation
 
@@ -56,6 +78,7 @@ Home Assistant integration for Computherm B Series WiFi thermostats. It provides
 The tested devices had only one input sensor and one relay output, so the integration may not work (or only work with the "first") with devices that have more than one input and output.
 - [Computherm B300](https://computherm.info/en/wi-fi_thermostats/computherm_b300)
 - [Computherm B300RF](https://computherm.info/en/wi-fi_thermostats/computherm_b300rf)
+- [Computherm B400RF](https://computherm.info/en/wi-fi_thermostats/computherm_b400rf)
 
 ## API Documentation
 

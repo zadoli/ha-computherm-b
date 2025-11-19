@@ -1,1 +1,4 @@
 /.idea
+.clinerules/
+custom_components/computherm_b/__pycache__/
+tests/__pycache__/

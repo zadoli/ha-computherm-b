@@ -96,23 +96,62 @@ class WebSocketMessageHandler:
             device_update: Dict[str, Any]
     ) -> None:
         """Process temperature and humidity readings and update device state."""
+        # Initialize sensor_readings if not present
+        if DA.SENSOR_READINGS not in device_update:
+            device_update[DA.SENSOR_READINGS] = {}
+        
         for reading in readings:
             if "reading" not in reading:
                 continue
 
+            # Create unique sensor key based on src, id, and type
+            src = reading.get("src", "").upper()
+            sensor_id = reading.get("id")
+            reading_type = reading.get("type", "").upper()
+            
+            # For ONBOARD sensors, use src_type as key (e.g., ONBOARD_TEMPERATURE, ONBOARD_HUMIDITY)
+            # For RELAY/REMOTE sensors, use src_id combination
+            if src == "ONBOARD":
+                sensor_key = f"{src}_{reading_type}"
+            elif sensor_id is not None:
+                sensor_key = f"{src}_{sensor_id}"
+            else:
+                # Fallback: use src and sensor number
+                sensor_num = reading.get("sensor", 1)
+                sensor_key = f"{src}_{sensor_num}"
+
+            # Initialize sensor entry if not exists
+            if sensor_key not in device_update[DA.SENSOR_READINGS]:
+                device_update[DA.SENSOR_READINGS][sensor_key] = {}
+
+            # Store sensor metadata
+            device_update[DA.SENSOR_READINGS][sensor_key].update({
+                "src": src.lower(),
+                "name": reading.get("name", ""),
+                "type": reading.get("type"),
+            })
+
             # Add common sensor attributes if present
-            for attr in ["battery", "rssi", "rssi_level", "src"]:
+            for attr in ["battery", "rssi", "rssi_level"]:
                 if attr in reading:
-                    # Convert rssi_level and src to lowercase
-                    if attr in ["rssi_level", "src"]:
-                        device_update[attr] = str(
+                    if attr == "rssi_level":
+                        device_update[DA.SENSOR_READINGS][sensor_key][attr] = str(
                             reading[attr]).lower() if reading[attr] is not None else None
                     else:
-                        device_update[attr] = reading[attr]
+                        device_update[DA.SENSOR_READINGS][sensor_key][attr] = reading[attr]
+            
+            # Store source at device level from the first sensor
+            if "src" in reading and DA.SOURCE not in device_update:
+                device_update[DA.SOURCE] = src.lower()
 
+            # Process different reading types
             if reading["type"] == WSC.Events.TEMPERATURE:
                 reading_value = None if reading["reading"] == "N/A" else reading["reading"]
-                device_update[DA.TEMPERATURE] = reading_value
+                device_update[DA.SENSOR_READINGS][sensor_key]["reading"] = reading_value
+                
+                # For backward compatibility, keep the first temperature reading in DA.TEMPERATURE
+                if DA.TEMPERATURE not in device_update:
+                    device_update[DA.TEMPERATURE] = reading_value
 
             elif reading["type"] == WSC.Events.HUMIDITY:
                 reading_value = None if reading["reading"] == "N/A" else reading["reading"]
@@ -146,10 +185,63 @@ class WebSocketMessageHandler:
                               if relay["mode"] is not None else None)
                 device_update[DA.MODE] = mode_value
 
-            if "manual_set_point" in relay:
-                set_point = (None if relay["manual_set_point"] == "N/A"
+            # Set target temperature based on mode
+            # If mode is SCHEDULE, use schedule_set_point
+            # If mode is MANUAL, use manual_set_point
+            if "mode" in relay:
+                if relay["mode"] == "SCHEDULE" and "schedule_set_point" in relay:
+                    set_point = (None if relay["schedule_set_point"] in ("N/A", "OFF") 
+                                 else relay["schedule_set_point"])
+                    device_update[DA.TARGET_TEMPERATURE] = set_point
+                elif relay["mode"] == "MANUAL" and "manual_set_point" in relay:
+                    set_point = (None if relay["manual_set_point"] in ("N/A", "OFF")
+                                 else relay["manual_set_point"])
+                    device_update[DA.TARGET_TEMPERATURE] = set_point
+            # Fallback: if no mode, try manual_set_point (backward compatibility)
+            elif "manual_set_point" in relay and DA.TARGET_TEMPERATURE not in device_update:
+                set_point = (None if relay["manual_set_point"] in ("N/A", "OFF")
                              else relay["manual_set_point"])
                 device_update[DA.TARGET_TEMPERATURE] = set_point
+            
+            # Store controlling sensor information for multi-sensor support
+            if "controlling_src" in relay:
+                device_update[DA.CONTROLLING_SRC] = str(relay["controlling_src"]).upper()
+            
+            if "controlling_sensor" in relay:
+                device_update[DA.CONTROLLING_SENSOR] = relay["controlling_sensor"]
+            
+            # For devices with controlling_reading (older format)
+            if "controlling_reading" in relay:
+                device_update[DA.CURRENT_TEMPERATURE] = (
+                    None if relay["controlling_reading"] == "N/A" 
+                    else relay["controlling_reading"]
+                )
+        
+        # Determine current_temperature from the controlling sensor
+        # This is used by the climate entity
+        if DA.CONTROLLING_SRC in device_update and DA.SENSOR_READINGS in device_update:
+            controlling_src = device_update[DA.CONTROLLING_SRC]
+            sensor_id = device_update.get(DA.CONTROLLING_SENSOR)
+            
+            # Build sensor key based on controlling_src
+            # For ONBOARD sensors, the key is ONBOARD_TEMPERATURE
+            if controlling_src == "ONBOARD":
+                sensor_key = "ONBOARD_TEMPERATURE"
+            elif sensor_id is not None:
+                sensor_key = f"{controlling_src}_{sensor_id}"
+            else:
+                sensor_key = controlling_src
+            
+            # Get the reading from the appropriate sensor
+            if sensor_key in device_update[DA.SENSOR_READINGS]:
+                sensor_data = device_update[DA.SENSOR_READINGS][sensor_key]
+                if "reading" in sensor_data:
+                    device_update[DA.CURRENT_TEMPERATURE] = sensor_data["reading"]
+                    _LOGGER.debug(
+                        "Set current_temperature to %s from sensor %s",
+                        sensor_data["reading"],
+                        sensor_key
+                    )
 
     @staticmethod
     def process_base_info(
@@ -159,10 +251,11 @@ class WebSocketMessageHandler:
         """Process base_info event data."""
         relay_array = event_data.get("relays", [])
         reading_array = event_data.get("readings", [])
+        system_data = event_data.get("system", {})
 
         sensors = {
             str(reading["sensor"]): {
-                "id": reading["id"],
+                "id": reading.get("id"),
                 "src": (str(reading["src"]).lower()
                         if reading["src"] is not None else None),
                 "sensor": reading["sensor"],
@@ -187,6 +280,21 @@ class WebSocketMessageHandler:
             "sensors": sensors,
             "relays": relays,
         }
+        
+        # Process readings first to populate sensor_readings
+        if reading_array:
+            WebSocketMessageHandler._process_readings(reading_array, serial, device_update)
+        
+        # Add device-level diagnostic data from system object (if available)
+        # This is done AFTER processing readings to ensure system-level values take precedence
+        if system_data:
+            if "rssi" in system_data:
+                device_update[DA.RSSI] = system_data["rssi"]
+            if "rssi_level" in system_data:
+                device_update[DA.RSSI_LEVEL] = str(system_data["rssi_level"]).lower() if system_data["rssi_level"] is not None else None
+        
+        if relay_array:
+            WebSocketMessageHandler._process_relays(relay_array, serial, device_update)
 
         return device_update
 

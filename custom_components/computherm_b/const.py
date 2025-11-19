@@ -41,6 +41,12 @@ class DeviceAttributes:
     MODE: Final[str] = "mode"
     RELAY_STATE: Final[str] = "relay_state"
     ONLINE: Final[str] = "online"
+    
+    # Multi-sensor support
+    CONTROLLING_SENSOR: Final[str] = "controlling_sensor"
+    CONTROLLING_SRC: Final[str] = "controlling_src"
+    SENSOR_READINGS: Final[str] = "sensor_readings"
+    CURRENT_TEMPERATURE: Final[str] = "current_temperature"  # For climate entity
 
     # Diagnostic
     BATTERY: Final[str] = "battery"
