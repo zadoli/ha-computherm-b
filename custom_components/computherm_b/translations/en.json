@@ -19,13 +19,19 @@
         },
         "sensor": {
             "temperature": {
-                "name": "{custom_name} temperature"
+                "name": "{sensor_name} Temperature"
             },
             "humidity": {
-                "name": "{custom_name} humidity"
+                "name": "{sensor_name} Humidity"
+            },
+            "battery": {
+                "name": "{sensor_name} Battery"
+            },
+            "rssi": {
+                "name": "{sensor_name} Signal strength"
             },
             "rssi_level": {
-                "name": "Signal level",
+                "name": "{sensor_name} Signal level",
                 "state": {
                     "weak": "Weak",
                     "average": "Average",
@@ -33,11 +39,11 @@
                 }
             },
             "source": {
-                "name": "Source",
+                "name": "Controlling sensor",
                 "state": {
-                    "relay": "Relay",
+                    "relay": "Wired",
                     "remote": "Remote sensor",
-                    "onboard": "Beépített érzékelő"
+                    "onboard": "Built-in"
                 }
             },
             "relay": {

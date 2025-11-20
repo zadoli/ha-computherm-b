@@ -368,10 +368,11 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
 
                 # Set unique_id with sensor_key to differentiate multiple sensors
                 self._attr_unique_id = f"{DOMAIN}_{self.device_id}_temperature_{self.sensor_key}"
-                self._attr_name = sensor_name
+                # Use translation_placeholders for multi-sensor support
+                self._attr_translation_placeholders = {"sensor_name": sensor_name}
 
                 _LOGGER.info(
-                    "Temperature entity initialized - ID: %s, Name: %s, Sensor Key: %s",
+                    "Temperature entity initialized - ID: %s, Sensor Name: %s, Sensor Key: %s",
                     self._attr_unique_id,
                     sensor_name,
                     self.sensor_key
@@ -384,8 +385,18 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
                 "Device %s has no sensor data available",
                 self.device_id)
             entity_name = self._get_default_name()
+            # Set placeholder with default name
+            self._attr_translation_placeholders = {"sensor_name": "Temperature"}
         else:
             entity_name = self._get_entity_name(device_data)
+            # Try to get sensor name from device data for placeholder
+            sensor_name = "Temperature"  # Default fallback
+            if 'available_sensor_ids' in device_data and device_data['available_sensor_ids']:
+                sensor_id = str(device_data['available_sensor_ids'][0])
+                if 'sensors' in device_data and sensor_id in device_data['sensors']:
+                    sensor_name = device_data["sensors"][sensor_id].get("name", "Temperature")
+            # Always set the placeholder
+            self._attr_translation_placeholders = {"sensor_name": sensor_name}
 
         self._attr_unique_id = f"{DOMAIN}_{self.device_id}_{entity_name}"
 
@@ -397,10 +408,7 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
 
     def _process_entity_name(self, base_name: str) -> str:
         """Process the temperature entity name."""
-        if "temperature" not in base_name.lower():
-            self._attr_translation_placeholders = {"custom_name": base_name}
-            return f"{base_name} temperature"
-        self._attr_name = base_name
+        # Temperature name comes from translation
         return base_name
 
     @property
@@ -466,12 +474,38 @@ class ComputhermHumiditySensor(ComputhermNumericSensorBase):
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_icon = "mdi:water-percent"
 
+    def _setup_entity_info(self) -> None:
+        """Set up entity information."""
+        device_data = self.coordinator.device_data.get(self.device_id, {})
+        if not device_data or 'available_sensor_ids' not in device_data:
+            _LOGGER.error(
+                "Device %s has no sensor data available",
+                self.device_id)
+            entity_name = self._get_default_name()
+            # Set placeholder with default name
+            self._attr_translation_placeholders = {"sensor_name": "Humidity"}
+        else:
+            entity_name = self._get_entity_name(device_data)
+            # Try to get sensor name from device data for placeholder
+            sensor_name = "Humidity"  # Default fallback
+            if 'available_sensor_ids' in device_data and device_data['available_sensor_ids']:
+                sensor_id = str(device_data['available_sensor_ids'][0])
+                if 'sensors' in device_data and sensor_id in device_data['sensors']:
+                    sensor_name = device_data["sensors"][sensor_id].get("name", "Humidity")
+            # Always set the placeholder
+            self._attr_translation_placeholders = {"sensor_name": sensor_name}
+
+        self._attr_unique_id = f"{DOMAIN}_{self.device_id}_{entity_name}"
+
+        _LOGGER.info(
+            "Entity initialized - ID: %s, Name: %s",
+            self._attr_unique_id,
+            entity_name
+        )
+
     def _process_entity_name(self, base_name: str) -> str:
         """Process the humidity entity name."""
-        if "humidity" not in base_name.lower():
-            self._attr_translation_placeholders = {"custom_name": base_name}
-            return f"{base_name} humidity"
-        self._attr_name = base_name
+        # Humidity name comes from translation
         return base_name
 
     @property
@@ -513,11 +547,12 @@ class ComputhermBatterySensor(ComputhermDiagnosticSensorBase):
         if self.sensor_key:
             # Sensor-specific battery sensor
             self._attr_unique_id = f"{DOMAIN}_{self.device_id}_battery_{self.sensor_key}"
-            self._attr_name = f"{self.sensor_name} Elem/Akku"
+            # Use translation_placeholders for multi-sensor support
+            self._attr_translation_placeholders = {"sensor_name": self.sensor_name}
             _LOGGER.info(
-                "Battery entity initialized - ID: %s, Name: %s, Sensor Key: %s",
+                "Battery entity initialized - ID: %s, Sensor Name: %s, Sensor Key: %s",
                 self._attr_unique_id,
-                self._attr_name,
+                self.sensor_name,
                 self.sensor_key
             )
         else:
@@ -586,16 +621,18 @@ class ComputhermRSSISensor(ComputhermDiagnosticSensorBase):
         if self.sensor_key:
             # Sensor-specific RSSI sensor
             self._attr_unique_id = f"{DOMAIN}_{self.device_id}_rssi_{self.sensor_key}"
-            self._attr_name = f"{self.sensor_name} Jelerősség"
+            # Use translation_placeholders for multi-sensor support
+            self._attr_translation_placeholders = {"sensor_name": self.sensor_name}
             _LOGGER.info(
-                "RSSI entity initialized - ID: %s, Name: %s, Sensor Key: %s",
+                "RSSI entity initialized - ID: %s, Sensor Name: %s, Sensor Key: %s",
                 self._attr_unique_id,
-                self._attr_name,
+                self.sensor_name,
                 self.sensor_key
             )
         else:
-            # Device-level RSSI sensor (legacy)
+            # Device-level RSSI sensor (legacy) - no sensor name placeholder needed
             self._attr_unique_id = f"{DOMAIN}_{self.device_id}_rssi"
+            self._attr_translation_placeholders = {"sensor_name": "Wi-Fi"}
 
     @property
     def native_value(self) -> float | None:
@@ -658,16 +695,18 @@ class ComputhermRSSILevelSensor(ComputhermSensorBase, SensorEntity):
         if self.sensor_key:
             # Sensor-specific RSSI level sensor
             self._attr_unique_id = f"{DOMAIN}_{self.device_id}_rssi_level_{self.sensor_key}"
-            self._attr_name = f"{self.sensor_name} Jelszint"
+            # Use translation_placeholders for multi-sensor support
+            self._attr_translation_placeholders = {"sensor_name": self.sensor_name}
             _LOGGER.info(
-                "RSSI Level entity initialized - ID: %s, Name: %s, Sensor Key: %s",
+                "RSSI Level entity initialized - ID: %s, Sensor Name: %s, Sensor Key: %s",
                 self._attr_unique_id,
-                self._attr_name,
+                self.sensor_name,
                 self.sensor_key
             )
         else:
-            # Device-level RSSI level sensor (legacy)
+            # Device-level RSSI level sensor (legacy) - no sensor name placeholder needed
             self._attr_unique_id = f"{DOMAIN}_{self.device_id}_rssi_level"
+            self._attr_translation_placeholders = {"sensor_name": "Wi-Fi"}
 
     @property
     def native_value(self) -> str | None:

@@ -41,13 +41,19 @@
         },
         "sensor": {
             "temperature": {
-                "name": "{custom_name} hőmérséklet"
+                "name": "{sensor_name} Hőmérséklet"
             },
             "humidity": {
-                "name": "{custom_name} páratartalom"
+                "name": "{sensor_name} Páratartalom"
+            },
+            "battery": {
+                "name": "{sensor_name} Elem/Akku"
+            },
+            "rssi": {
+                "name": "{sensor_name} Jelerősség"
             },
             "rssi_level": {
-                "name": "Jelszint",
+                "name": "{sensor_name} Jelszint",
                 "state": {
                     "weak": "Gyenge",
                     "average": "Átlagos",
@@ -55,11 +61,11 @@
                 }
             },
             "source": {
-                "name": "Forrás",
+                "name": "Vezérlésre használt szenzor",
                 "state": {
-                    "relay": "Relé",
-                    "remote": "Vezetéknélküli érzékelő",
-                    "onboard": "Beépített érzékelő"
+                    "relay": "Vevőegység",
+                    "remote": "RF",
+                    "onboard": "Beépített"
                 }
             },
             "relay": {
