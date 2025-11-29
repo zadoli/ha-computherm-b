@@ -246,7 +246,8 @@ class WebSocketMessageHandler:
     @staticmethod
     def process_base_info(
             event_data: Dict[str, Any],
-            serial: str
+            serial: str,
+            coordinator=None
     ) -> Dict[str, Any]:
         """Process base_info event data."""
         relay_array = event_data.get("relays", [])
@@ -288,6 +289,59 @@ class WebSocketMessageHandler:
         # Add device-level diagnostic data from system object (if available)
         # This is done AFTER processing readings to ensure system-level values take precedence
         if system_data:
+            # Store the entire system data for access to firmware info, uptime, etc.
+            device_update["system"] = system_data
+            
+            # Calculate boot timestamp from uptime if available
+            if "uptime" in system_data:
+                from datetime import datetime, timedelta, timezone
+                try:
+                    uptime_data = system_data["uptime"]
+                    days = uptime_data.get("days", 0)
+                    hours = uptime_data.get("hours", 0)
+                    minutes = uptime_data.get("minutes", 0)
+                    seconds = uptime_data.get("seconds", 0)
+                    
+                    # Calculate total uptime in seconds
+                    total_seconds = (days * 86400) + (hours * 3600) + (minutes * 60) + seconds
+                    
+                    # Calculate boot time by subtracting uptime from current time
+                    new_boot_time = datetime.now(timezone.utc) - timedelta(seconds=total_seconds)
+                    
+                    # Only update boot_timestamp if it doesn't exist or differs significantly
+                    # from the previous value (> 60 seconds difference indicates device reboot)
+                    should_update = True
+                    if coordinator and serial in coordinator.device_data:
+                        existing_system = coordinator.device_data[serial].get("system", {})
+                        existing_boot_timestamp = existing_system.get("boot_timestamp")
+                        
+                        if existing_boot_timestamp:
+                            try:
+                                existing_boot_time = datetime.fromisoformat(existing_boot_timestamp)
+                                time_diff = abs((new_boot_time - existing_boot_time).total_seconds())
+                                
+                                # Only update if difference is more than 60 seconds (device rebooted)
+                                if time_diff < 60:
+                                    should_update = False
+                                    # Keep the existing boot timestamp
+                                    device_update["system"]["boot_timestamp"] = existing_boot_timestamp
+                                    _LOGGER.debug(
+                                        "Device %s: Keeping existing boot_timestamp (diff: %.1f sec)",
+                                        serial, time_diff
+                                    )
+                            except (ValueError, TypeError) as error:
+                                _LOGGER.debug("Failed to parse existing boot timestamp: %s", error)
+                    
+                    if should_update:
+                        # Store new boot timestamp
+                        device_update["system"]["boot_timestamp"] = new_boot_time.isoformat()
+                        _LOGGER.debug(
+                            "Device %s: Updated boot_timestamp to %s",
+                            serial, new_boot_time.isoformat()
+                        )
+                except (ValueError, TypeError, KeyError) as error:
+                    _LOGGER.debug("Failed to calculate boot timestamp: %s", error)
+            
             if "rssi" in system_data:
                 device_update[DA.RSSI] = system_data["rssi"]
             if "rssi_level" in system_data:
@@ -308,11 +362,13 @@ class WebSocketClient:
         auth_token: str,
         device_serials: List[str],
         data_callback: Callable[[Dict[str, Any]], None],
+        coordinator=None,
     ) -> None:
         """Initialize the WebSocket client."""
         self.auth_token = auth_token
         self.device_serials = device_serials
         self.data_callback = data_callback
+        self.coordinator = coordinator
         self.token_expiry: Optional[datetime] = self._get_token_expiry(
             auth_token)
         self.websocket = None
@@ -407,9 +463,9 @@ class WebSocketClient:
                     datetime.now() - self._last_message_time).total_seconds()
                 ping_timeout = self._ping_interval * 1.2  # Add 20% to the ping interval
 
-                _LOGGER.debug(
-                    "Watchdog checking connection status... (last message time: %.1f)",
-                    time_since_last_message)
+                # _LOGGER.debug(
+                #     "Watchdog checking connection status... (last message time: %.1f)",
+                #     time_since_last_message)
 
                 # If we've exceeded the timeout, force a reconnection
                 if time_since_last_message > ping_timeout:
@@ -719,9 +775,9 @@ class WebSocketClient:
 
         # Handle Socket.IO protocol messages
         if message == "2":  # Socket.IO v4 ping message from server
-            _LOGGER.debug(
-                "After %.1f sec, server ping received, sending pong",
-                time_since_last_message)
+            # _LOGGER.debug(
+            #     "After %.1f sec, server ping received, sending pong",
+            #     time_since_last_message)
             # Send pong response (3 is pong in Socket.IO v4)
             await self.websocket.send("3")
             return
@@ -794,7 +850,7 @@ class WebSocketClient:
                 return
 
             device_update = self._message_handler.process_base_info(
-                event_data, serial)
+                event_data, serial, self.coordinator)
         else:
             # Handle regular updates
             serial = event_data.get(DA.SERIAL_NUMBER)

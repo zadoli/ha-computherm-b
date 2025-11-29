@@ -10,6 +10,7 @@ API_BASE_URL: Final[str] = "https://api.computhermbseries.com"
 API_LOGIN_ENDPOINT: Final[str] = "/api/auth/login"
 API_DEVICES_ENDPOINT: Final[str] = "/api/devices"
 API_DEVICE_CONTROL_ENDPOINT: Final[str] = "/api/devices/{device_id}/cmd"
+API_WIFI_STATE_ENDPOINT: Final[str] = "/api/devices/{device_id}/cmd/wifi-state"
 
 # Device Types and Models
 DEVICE_TYPES: Final[Dict[str, str]] = {

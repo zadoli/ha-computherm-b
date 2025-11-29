@@ -46,8 +46,23 @@
                     "onboard": "Built-in"
                 }
             },
+            "ssid": {
+                "name": "Wi-Fi SSID"
+            },
+            "bssid": {
+                "name": "Wi-Fi BSSID"
+            },
+            "ip": {
+                "name": "Wi-Fi IP Address"
+            },
+            "dhcp_hostname": {
+                "name": "DHCP Hostname"
+            },
             "relay": {
                 "name": "Relay"
+            },
+            "uptime": {
+                "name": "Started"
             }
         },
         "climate": {

@@ -13,7 +13,7 @@ from homeassistant.helpers.update_coordinator import (DataUpdateCoordinator,
                                                       UpdateFailed)
 
 from .const import (API_BASE_URL, API_DEVICES_ENDPOINT, API_LOGIN_ENDPOINT,
-                    DOMAIN)
+                    API_WIFI_STATE_ENDPOINT, DOMAIN)
 from .const import DeviceAttributes as DA
 from .websocket import WebSocketClient
 
@@ -210,6 +210,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                     auth_token=self.auth_token,
                     device_serials=list(self.devices.keys()),
                     data_callback=self._handle_ws_update,
+                    coordinator=self,
                 )
                 await self._ws_client.start()
                 _LOGGER.info("WebSocket connection established successfully")
@@ -308,13 +309,6 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             "base_info": None,
         }
 
-    def _process_base_info_update(
-            self, serial: str, device_data: Dict[str, Any]) -> None:
-        """Process base_info update for a device."""
-        self.devices_with_base_info[serial] = device_data["base_info"]
-        # Update with all data from device_data, including sensor_readings and current_temperature
-        self.device_data[serial].update(device_data)
-
     def _process_state_update(
             self, serial: str, device_data: Dict[str, Any]) -> None:
         """Process state update for a device."""
@@ -331,6 +325,81 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             self.device_data[serial][DA.MODE] = existing_mode
         else:
             self.device_data[serial].update(device_data)
+
+    def _process_base_info_update(
+            self, serial: str, device_data: Dict[str, Any]) -> None:
+        """Process base_info update for a device."""
+        self.devices_with_base_info[serial] = device_data["base_info"]
+        # Update with all data from device_data, including sensor_readings and current_temperature
+        self.device_data[serial].update(device_data)
+
+        # Always fetch WiFi state to populate WiFi sensors (SSID, BSSID, IP, etc.)
+        base_info = device_data.get("base_info", {})
+        device_id = base_info.get("id")
+        if device_id:
+            asyncio.create_task(self._fetch_wifi_state(serial, device_id))
+
+    async def _fetch_wifi_state(self, serial: str, device_id: int) -> None:
+        """Fetch WiFi state from API for a device."""
+        try:
+            _LOGGER.info("DEBUG: Starting WiFi state fetch for device %s (ID: %s)", serial, device_id)
+            endpoint = API_WIFI_STATE_ENDPOINT.format(device_id=device_id)
+            url = f"{API_BASE_URL}{endpoint}"
+            _LOGGER.info("DEBUG: WiFi state API URL: %s", url)
+
+            async with self.session.get(
+                url,
+                headers={"Authorization": f"Bearer {self.auth_token}"},
+            ) as resp:
+                _LOGGER.info("DEBUG: WiFi state API response status: %s", resp.status)
+                resp.raise_for_status()
+                wifi_data = await resp.json()
+                _LOGGER.info("DEBUG: WiFi state API response data: %s", wifi_data)
+
+                # Check if device exists in device_data
+                if serial not in self.device_data:
+                    _LOGGER.error("DEBUG: Device %s not found in device_data! Cannot store WiFi info.", serial)
+                    return
+
+                # Extract system data from response (API returns it wrapped in 'system' key)
+                system_data = wifi_data.get("system", {})
+                _LOGGER.info("DEBUG: Extracted system data: %s", system_data)
+                
+                # Create a new device data dict to ensure change detection works
+                _LOGGER.info("DEBUG: Creating new device data dict for device %s", serial)
+                updated_device_data = {**self.device_data[serial]}
+                
+                # Store the WiFi system info for sensors to access
+                _LOGGER.info("DEBUG: Storing WiFi info for device %s", serial)
+                updated_device_data["wifi_info"] = system_data
+                _LOGGER.info("DEBUG: WiFi info stored: %s", system_data)
+
+                # Always update RSSI values from WiFi API (this is the authoritative source)
+                if "rssi" in system_data:
+                    _LOGGER.info("DEBUG: Updating RSSI from WiFi data: %s (old: %s)", 
+                               system_data["rssi"], updated_device_data.get(DA.RSSI))
+                    updated_device_data[DA.RSSI] = system_data["rssi"]
+                    
+                if "rssi_level" in system_data:
+                    _LOGGER.info("DEBUG: Updating RSSI_LEVEL from WiFi data: %s (old: %s)", 
+                               system_data["rssi_level"], updated_device_data.get(DA.RSSI_LEVEL))
+                    updated_device_data[DA.RSSI_LEVEL] = system_data["rssi_level"]
+
+                # Update the device_data with the new dict
+                self.device_data[serial] = updated_device_data
+
+                # Notify HA of the update with a new top-level dict
+                _LOGGER.info("DEBUG: Notifying Home Assistant of WiFi data update for device %s", serial)
+                self.async_set_updated_data({**self.device_data})
+                _LOGGER.info("DEBUG: WiFi state update completed successfully for device %s", serial)
+
+        except ClientResponseError as error:
+            if error.status == 401:
+                _LOGGER.warning("DEBUG: Authentication failed while fetching WiFi state for %s (status: %s)", serial, error.status)
+            else:
+                _LOGGER.error("DEBUG: API error fetching WiFi state for %s: status=%s, error=%s", serial, error.status, error)
+        except Exception as error:
+            _LOGGER.error("DEBUG: Failed to fetch WiFi state for %s: %s", serial, error, exc_info=True)
 
     async def async_stop(self) -> None:
         """Stop the coordinator."""

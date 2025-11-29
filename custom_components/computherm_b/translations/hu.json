@@ -68,8 +68,23 @@
                     "onboard": "Beépített"
                 }
             },
+            "ssid": {
+                "name": "Wi-Fi SSID"
+            },
+            "bssid": {
+                "name": "Wi-Fi BSSID"
+            },
+            "ip": {
+                "name": "Wi-Fi IP cím"
+            },
+            "dhcp_hostname": {
+                "name": "DHCP gépnév"
+            },
             "relay": {
                 "name": "Relé"
+            },
+            "uptime": {
+                "name": "Elindítva"
             }
         },
         "climate": {

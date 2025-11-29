@@ -45,6 +45,11 @@ async def async_setup_entry(
         "rssi": set(),
         "rssi_level": set(),
         "source": set(),
+        "ssid": set(),
+        "bssid": set(),
+        "wifi_ip": set(),
+        "dhcp_hostname": set(),
+        "uptime": set(),
     }
 
     @callback
@@ -54,21 +59,22 @@ async def async_setup_entry(
             return
 
         device_data = coordinator.device_data.get(device_id, {})
-        if not device_data or 'available_sensor_ids' not in device_data:
-            _LOGGER.debug("Device %s has no sensor data yet", device_id)
+        if not device_data:
+            _LOGGER.debug("Device %s has no data yet", device_id)
             return
 
         entities_to_add = []
 
-        # Add core sensors
-        _add_core_sensors(
-            coordinator,
-            device_id,
-            device_data,
-            entities_to_add,
-            existing_entities)
+        # Add core sensors (requires available_sensor_ids)
+        if 'available_sensor_ids' in device_data:
+            _add_core_sensors(
+                coordinator,
+                device_id,
+                device_data,
+                entities_to_add,
+                existing_entities)
 
-        # Add diagnostic sensors
+        # Add diagnostic sensors (some may not require available_sensor_ids)
         _add_diagnostic_sensors(
             coordinator,
             device_id,
@@ -231,6 +237,42 @@ def _add_diagnostic_sensors(
         _LOGGER.info("Creating source sensor for device %s", device_id)
         entities_to_add.append(ComputhermSourceSensor(coordinator, device_id))
         existing_entities["source"].add(device_id)
+
+    # Add WiFi diagnostic sensors if wifi_info is available
+    wifi_info = device_data.get("wifi_info")
+    if wifi_info:
+        # Create SSID sensor
+        if "ssid" in wifi_info and device_id not in existing_entities["ssid"]:
+            _LOGGER.info("Creating SSID sensor for device %s", device_id)
+            entities_to_add.append(ComputhermSSIDSensor(coordinator, device_id))
+            existing_entities["ssid"].add(device_id)
+
+        # Create BSSID sensor
+        if "bssid" in wifi_info and device_id not in existing_entities["bssid"]:
+            _LOGGER.info("Creating BSSID sensor for device %s", device_id)
+            entities_to_add.append(ComputhermBSSIDSensor(coordinator, device_id))
+            existing_entities["bssid"].add(device_id)
+
+        # Create IP sensor
+        if "ip4" in wifi_info and device_id not in existing_entities["wifi_ip"]:
+            _LOGGER.info("Creating IP sensor for device %s", device_id)
+            entities_to_add.append(ComputhermIPSensor(coordinator, device_id))
+            existing_entities["wifi_ip"].add(device_id)
+
+        # Create DHCP hostname sensor
+        if "dhcp_hostname" in wifi_info and device_id not in existing_entities["dhcp_hostname"]:
+            _LOGGER.info("Creating DHCP hostname sensor for device %s", device_id)
+            entities_to_add.append(ComputhermDHCPSensor(coordinator, device_id))
+            existing_entities["dhcp_hostname"].add(device_id)
+
+    # Add uptime sensor if uptime data is available in system data
+    system_data = device_data.get("system", {})
+    
+    if "uptime" in system_data:
+        if device_id not in existing_entities["uptime"]:
+            _LOGGER.info("Creating uptime sensor for device %s", device_id)
+            entities_to_add.append(ComputhermUptimeSensor(coordinator, device_id))
+            existing_entities["uptime"].add(device_id)
 
 
 @callback
@@ -633,6 +675,7 @@ class ComputhermRSSISensor(ComputhermDiagnosticSensorBase):
             # Device-level RSSI sensor (legacy) - no sensor name placeholder needed
             self._attr_unique_id = f"{DOMAIN}_{self.device_id}_rssi"
             self._attr_translation_placeholders = {"sensor_name": "Wi-Fi"}
+            self._attr_icon = "mdi:wifi"
 
     @property
     def native_value(self) -> float | None:
@@ -707,6 +750,7 @@ class ComputhermRSSILevelSensor(ComputhermSensorBase, SensorEntity):
             # Device-level RSSI level sensor (legacy) - no sensor name placeholder needed
             self._attr_unique_id = f"{DOMAIN}_{self.device_id}_rssi_level"
             self._attr_translation_placeholders = {"sensor_name": "Wi-Fi"}
+            self._attr_icon = "mdi:wifi"
 
     @property
     def native_value(self) -> str | None:
@@ -751,6 +795,78 @@ class ComputhermSourceSensor(ComputhermSensorBase, SensorEntity):
         return self.device_data.get(DA.SOURCE)
 
 
+class ComputhermSSIDSensor(ComputhermSensorBase, SensorEntity):
+    """Representation of a Computherm WiFi SSID Sensor."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_translation_key = "ssid"
+    _attr_icon = "mdi:wifi"
+
+    def _setup_entity_info(self) -> None:
+        """Set up entity information."""
+        self._attr_unique_id = f"{DOMAIN}_{self.device_id}_ssid"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the SSID value."""
+        wifi_info = self.device_data.get("wifi_info", {})
+        return wifi_info.get("ssid")
+
+
+class ComputhermBSSIDSensor(ComputhermSensorBase, SensorEntity):
+    """Representation of a Computherm WiFi BSSID Sensor."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_translation_key = "bssid"
+    _attr_icon = "mdi:wifi"
+
+    def _setup_entity_info(self) -> None:
+        """Set up entity information."""
+        self._attr_unique_id = f"{DOMAIN}_{self.device_id}_bssid"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the BSSID value."""
+        wifi_info = self.device_data.get("wifi_info", {})
+        return wifi_info.get("bssid")
+
+
+class ComputhermIPSensor(ComputhermSensorBase, SensorEntity):
+    """Representation of a Computherm IP Address Sensor."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_translation_key = "ip"
+    _attr_icon = "mdi:ip"
+
+    def _setup_entity_info(self) -> None:
+        """Set up entity information."""
+        self._attr_unique_id = f"{DOMAIN}_{self.device_id}_ip"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the IP address value."""
+        wifi_info = self.device_data.get("wifi_info", {})
+        return wifi_info.get("ip4")
+
+
+class ComputhermDHCPSensor(ComputhermSensorBase, SensorEntity):
+    """Representation of a Computherm DHCP Hostname Sensor."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_translation_key = "dhcp_hostname"
+    _attr_icon = "mdi:network"
+
+    def _setup_entity_info(self) -> None:
+        """Set up entity information."""
+        self._attr_unique_id = f"{DOMAIN}_{self.device_id}_dhcp_hostname"
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the DHCP hostname value."""
+        wifi_info = self.device_data.get("wifi_info", {})
+        return wifi_info.get("dhcp_hostname")
+
+
 class ComputhermRelaySensor(ComputhermSensorBase, BinarySensorEntity):
     """Representation of a Computherm Relay Binary Sensor."""
 
@@ -773,3 +889,72 @@ class ComputhermRelaySensor(ComputhermSensorBase, BinarySensorEntity):
     def icon(self) -> str:
         """Return the icon to use for the relay."""
         return "mdi:electric-switch-closed" if self.is_on else "mdi:electric-switch"
+
+
+class ComputhermUptimeSensor(ComputhermSensorBase, SensorEntity):
+    """Representation of a Computherm Uptime Sensor."""
+
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_translation_key = "uptime"
+    _attr_icon = "mdi:clock-start"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(
+        self,
+        coordinator: ComputhermDataUpdateCoordinator,
+        serial: str,
+    ) -> None:
+        """Initialize the uptime sensor."""
+        self._last_boot_timestamp: str | None = None
+        super().__init__(coordinator, serial)
+
+    def _setup_entity_info(self) -> None:
+        """Set up entity information."""
+        self._attr_unique_id = f"{DOMAIN}_{self.device_id}_uptime"
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        # Only update if boot_timestamp has changed
+        system_data = self.device_data.get("system", {})
+        current_boot_timestamp = system_data.get("boot_timestamp")
+        
+        if current_boot_timestamp != self._last_boot_timestamp:
+            _LOGGER.debug("Device %s has updated uptime data: %s", self.device_id, system_data.get("uptime"))
+            self._last_boot_timestamp = current_boot_timestamp
+            super()._handle_coordinator_update()
+
+    @property
+    def native_value(self) -> Any | None:
+        """Return the boot/start timestamp."""
+        from datetime import datetime
+        
+        system_data = self.device_data.get("system", {})
+        
+        # Use pre-calculated boot timestamp from websocket
+        boot_timestamp = system_data.get("boot_timestamp")
+        
+        if not boot_timestamp:
+            return None
+        
+        try:
+            # Parse ISO format timestamp
+            return datetime.fromisoformat(boot_timestamp)
+        except (ValueError, TypeError):
+            return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return additional state attributes with uptime breakdown."""
+        system_data = self.device_data.get("system", {})
+        uptime_data = system_data.get("uptime")
+        
+        if not uptime_data:
+            return None
+        
+        return {
+            "days": uptime_data.get("days", 0),
+            "hours": uptime_data.get("hours", 0),
+            "minutes": uptime_data.get("minutes", 0),
+            "seconds": uptime_data.get("seconds", 0),
+        }
