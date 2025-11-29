@@ -13,7 +13,7 @@ from homeassistant.helpers.update_coordinator import (DataUpdateCoordinator,
                                                       UpdateFailed)
 
 from .const import (API_BASE_URL, API_DEVICES_ENDPOINT, API_LOGIN_ENDPOINT,
-                    API_WIFI_STATE_ENDPOINT, DOMAIN)
+                    API_SENSORS_ENDPOINT, API_WIFI_STATE_ENDPOINT, DOMAIN)
 from .const import DeviceAttributes as DA
 from .websocket import WebSocketClient
 
@@ -292,7 +292,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
 
     def _initialize_device_data(self, serial: str) -> None:
         """Initialize data structure for a device."""
-        _LOGGER.info("Initializing data structure for device %s", serial)
+        _LOGGER.info("[%s] Initializing data structure", serial)
         self.device_data[serial] = {
             **self.devices[serial],
             DA.TEMPERATURE: None,
@@ -333,55 +333,125 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         # Update with all data from device_data, including sensor_readings and current_temperature
         self.device_data[serial].update(device_data)
 
-        # Always fetch WiFi state to populate WiFi sensors (SSID, BSSID, IP, etc.)
+        # Fetch sensor metadata and WiFi state to populate all sensor information
         base_info = device_data.get("base_info", {})
         device_id = base_info.get("id")
         if device_id:
+            asyncio.create_task(self._fetch_sensor_metadata(serial, device_id))
             asyncio.create_task(self._fetch_wifi_state(serial, device_id))
 
-    async def _fetch_wifi_state(self, serial: str, device_id: int) -> None:
-        """Fetch WiFi state from API for a device."""
+    async def _fetch_sensor_metadata(self, serial: str, device_id: int) -> None:
+        """Fetch sensor metadata from API for a device."""
         try:
-            _LOGGER.info("DEBUG: Starting WiFi state fetch for device %s (ID: %s)", serial, device_id)
-            endpoint = API_WIFI_STATE_ENDPOINT.format(device_id=device_id)
+            _LOGGER.info("[%s] Starting sensor metadata fetch (ID: %s)", serial, device_id)
+            endpoint = API_SENSORS_ENDPOINT.format(device_id=device_id)
             url = f"{API_BASE_URL}{endpoint}"
-            _LOGGER.info("DEBUG: WiFi state API URL: %s", url)
+            _LOGGER.info("[%s] Sensor metadata API URL: %s", serial, url)
 
             async with self.session.get(
                 url,
                 headers={"Authorization": f"Bearer {self.auth_token}"},
             ) as resp:
-                _LOGGER.info("DEBUG: WiFi state API response status: %s", resp.status)
+                _LOGGER.info("[%s] Sensor metadata API response status: %s", serial, resp.status)
                 resp.raise_for_status()
-                wifi_data = await resp.json()
-                _LOGGER.info("DEBUG: WiFi state API response data: %s", wifi_data)
+                sensors_data = await resp.json()
+                _LOGGER.info("[%s] Sensor metadata API response data: %s", serial, sensors_data)
 
                 # Check if device exists in device_data
                 if serial not in self.device_data:
-                    _LOGGER.error("DEBUG: Device %s not found in device_data! Cannot store WiFi info.", serial)
+                    _LOGGER.error("[%s] Device not found in device_data! Cannot store sensor metadata.", serial)
+                    return
+
+                # Create a new device data dict to ensure change detection works
+                updated_device_data = {**self.device_data[serial]}
+                
+                # Store the sensor metadata
+                updated_device_data["sensor_metadata"] = sensors_data
+                _LOGGER.info("[%s] Sensor metadata stored: %d sensors found", serial, len(sensors_data))
+
+                # Update sensor_readings with names from metadata if they exist
+                if DA.SENSOR_READINGS in updated_device_data:
+                    for sensor_meta in sensors_data:
+                        # Build sensor key to match sensor_readings structure
+                        src = sensor_meta.get("src", "").upper()
+                        sensor_id = sensor_meta.get("id")
+                        sensor_type = sensor_meta.get("type", "").upper()
+                        
+                        # For ONBOARD sensors, use src_type as key
+                        if src == "ONBOARD":
+                            sensor_key = f"{src}_{sensor_type}"
+                        elif sensor_id is not None:
+                            sensor_key = f"{src}_{sensor_id}"
+                        else:
+                            sensor_num = sensor_meta.get("sensor", 1)
+                            sensor_key = f"{src}_{sensor_num}"
+                        
+                        # Update the name if this sensor exists in sensor_readings
+                        if sensor_key in updated_device_data[DA.SENSOR_READINGS]:
+                            name = sensor_meta.get("name", "").strip()
+                            if name:
+                                old_name = updated_device_data[DA.SENSOR_READINGS][sensor_key].get("name", "")
+                                updated_device_data[DA.SENSOR_READINGS][sensor_key]["name"] = name
+                                _LOGGER.debug("[%s] Updated sensor %s name from '%s' to '%s'", serial, sensor_key, old_name, name)
+
+                # Update the device_data with the new dict
+                self.device_data[serial] = updated_device_data
+
+                # Notify HA of the update
+                self.async_set_updated_data({**self.device_data})
+                _LOGGER.info("[%s] Sensor metadata update completed successfully", serial)
+
+        except ClientResponseError as error:
+            if error.status == 401:
+                _LOGGER.warning("[%s] Authentication failed while fetching sensor metadata (status: %s)", serial, error.status)
+            else:
+                _LOGGER.error("[%s] API error fetching sensor metadata: status=%s, error=%s", serial, error.status, error)
+        except Exception as error:
+            _LOGGER.error("[%s] Failed to fetch sensor metadata: %s", serial, error, exc_info=True)
+
+    async def _fetch_wifi_state(self, serial: str, device_id: int) -> None:
+        """Fetch WiFi state from API for a device."""
+        try:
+            _LOGGER.debug("[%s] Starting WiFi state fetch (ID: %s)", serial, device_id)
+            endpoint = API_WIFI_STATE_ENDPOINT.format(device_id=device_id)
+            url = f"{API_BASE_URL}{endpoint}"
+            _LOGGER.debug("[%s] WiFi state API URL: %s", serial, url)
+
+            async with self.session.get(
+                url,
+                headers={"Authorization": f"Bearer {self.auth_token}"},
+            ) as resp:
+                _LOGGER.debug("[%s] WiFi state API response status: %s", serial, resp.status)
+                resp.raise_for_status()
+                wifi_data = await resp.json()
+                _LOGGER.debug("[%s] WiFi state API response data: %s", serial, wifi_data)
+
+                # Check if device exists in device_data
+                if serial not in self.device_data:
+                    _LOGGER.error("[%s] Device not found in device_data! Cannot store WiFi info.", serial)
                     return
 
                 # Extract system data from response (API returns it wrapped in 'system' key)
                 system_data = wifi_data.get("system", {})
-                _LOGGER.info("DEBUG: Extracted system data: %s", system_data)
+                _LOGGER.debug("[%s] Extracted system data: %s", serial, system_data)
                 
                 # Create a new device data dict to ensure change detection works
-                _LOGGER.info("DEBUG: Creating new device data dict for device %s", serial)
+                _LOGGER.debug("[%s] Creating new device data dict", serial)
                 updated_device_data = {**self.device_data[serial]}
                 
                 # Store the WiFi system info for sensors to access
-                _LOGGER.info("DEBUG: Storing WiFi info for device %s", serial)
+                _LOGGER.debug("[%s] Storing WiFi info", serial)
                 updated_device_data["wifi_info"] = system_data
-                _LOGGER.info("DEBUG: WiFi info stored: %s", system_data)
+                _LOGGER.debug("[%s] WiFi info stored: %s", serial, system_data)
 
                 # Always update RSSI values from WiFi API (this is the authoritative source)
                 if "rssi" in system_data:
-                    _LOGGER.info("DEBUG: Updating RSSI from WiFi data: %s (old: %s)", 
+                    _LOGGER.debug("[%s] Updating RSSI from WiFi data: %s (old: %s)", serial,
                                system_data["rssi"], updated_device_data.get(DA.RSSI))
                     updated_device_data[DA.RSSI] = system_data["rssi"]
                     
                 if "rssi_level" in system_data:
-                    _LOGGER.info("DEBUG: Updating RSSI_LEVEL from WiFi data: %s (old: %s)", 
+                    _LOGGER.debug("[%s] Updating RSSI_LEVEL from WiFi data: %s (old: %s)", serial,
                                system_data["rssi_level"], updated_device_data.get(DA.RSSI_LEVEL))
                     updated_device_data[DA.RSSI_LEVEL] = system_data["rssi_level"]
 
@@ -389,17 +459,17 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 self.device_data[serial] = updated_device_data
 
                 # Notify HA of the update with a new top-level dict
-                _LOGGER.info("DEBUG: Notifying Home Assistant of WiFi data update for device %s", serial)
+                _LOGGER.debug("[%s] Notifying Home Assistant of WiFi data update", serial)
                 self.async_set_updated_data({**self.device_data})
-                _LOGGER.info("DEBUG: WiFi state update completed successfully for device %s", serial)
+                _LOGGER.debug("[%s] WiFi state update completed successfully", serial)
 
         except ClientResponseError as error:
             if error.status == 401:
-                _LOGGER.warning("DEBUG: Authentication failed while fetching WiFi state for %s (status: %s)", serial, error.status)
+                _LOGGER.warning("[%s] Authentication failed while fetching WiFi state (status: %s)", serial, error.status)
             else:
-                _LOGGER.error("DEBUG: API error fetching WiFi state for %s: status=%s, error=%s", serial, error.status, error)
+                _LOGGER.error("[%s] API error fetching WiFi state: status=%s, error=%s", serial, error.status, error)
         except Exception as error:
-            _LOGGER.error("DEBUG: Failed to fetch WiFi state for %s: %s", serial, error, exc_info=True)
+            _LOGGER.error("[%s] Failed to fetch WiFi state: %s", serial, error, exc_info=True)
 
     async def async_stop(self) -> None:
         """Stop the coordinator."""

@@ -48,7 +48,7 @@ async def async_setup_entry(
         # Add mode select if not already added
         if device_id not in existing_mode_entities:
             _LOGGER.info(
-                "Creating mode select entity for device %s",
+                "[%s] Creating mode select entity",
                 device_id)
             mode_entity = ComputhermModeSelect(coordinator, device_id)
             entities_to_add.append(mode_entity)
@@ -57,7 +57,7 @@ async def async_setup_entry(
         # Add function select if not already added
         if device_id not in existing_function_entities:
             _LOGGER.info(
-                "Creating function select entity for device %s",
+                "[%s] Creating function select entity",
                 device_id)
             function_entity = ComputhermFunctionSelect(coordinator, device_id)
             entities_to_add.append(function_entity)
@@ -65,12 +65,12 @@ async def async_setup_entry(
 
         if entities_to_add:
             async_add_entities(entities_to_add, True)
-            _LOGGER.info("Select entities created for device %s", device_id)
+            _LOGGER.info("[%s] Select entities created", device_id)
 
     # Add entities for devices that already have base_info
     for serial in coordinator.devices:
         if _is_device_ready(coordinator, serial):
-            _LOGGER.info("Found existing base_info for device %s", serial)
+            _LOGGER.info("[%s] Found existing base_info", serial)
             _async_add_entities_for_device(serial)
 
     # Register listener for coordinator updates
@@ -87,11 +87,11 @@ def _is_device_ready(
         device_id: str) -> bool:
     """Check if device is ready for entity creation."""
     if device_id not in coordinator.devices_with_base_info:
-        _LOGGER.debug("Device %s has no base_info yet", device_id)
+        _LOGGER.debug("[%s] Device has no base_info yet", device_id)
         return False
 
     if not coordinator.devices_with_base_info[device_id]:
-        _LOGGER.debug("Device %s has empty base_info", device_id)
+        _LOGGER.debug("[%s] Device has empty base_info", device_id)
         return False
 
     return True
@@ -173,9 +173,9 @@ class ComputhermSelectBase(CoordinatorEntity, SelectEntity):
 
                     if 200 <= response.status < 300:
                         _LOGGER.info(
-                            "Successfully sent command %s for device %s",
-                            command_data,
-                            self.serial_number
+                            "[%s] Successfully sent command %s",
+                            self.serial_number,
+                            command_data
                         )
                         await self.coordinator.async_request_refresh()
                     else:

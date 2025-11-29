@@ -238,7 +238,8 @@ class WebSocketMessageHandler:
                 if "reading" in sensor_data:
                     device_update[DA.CURRENT_TEMPERATURE] = sensor_data["reading"]
                     _LOGGER.debug(
-                        "Set current_temperature to %s from sensor %s",
+                        "[%s] Set current_temperature to %s from sensor %s",
+                        serial,
                         sensor_data["reading"],
                         sensor_key
                     )
@@ -326,21 +327,21 @@ class WebSocketMessageHandler:
                                     # Keep the existing boot timestamp
                                     device_update["system"]["boot_timestamp"] = existing_boot_timestamp
                                     _LOGGER.debug(
-                                        "Device %s: Keeping existing boot_timestamp (diff: %.1f sec)",
+                                        "[%s] Keeping existing boot_timestamp (diff: %.1f sec)",
                                         serial, time_diff
                                     )
                             except (ValueError, TypeError) as error:
-                                _LOGGER.debug("Failed to parse existing boot timestamp: %s", error)
+                                _LOGGER.debug("[%s] Failed to parse existing boot timestamp: %s", serial, error)
                     
                     if should_update:
                         # Store new boot timestamp
                         device_update["system"]["boot_timestamp"] = new_boot_time.isoformat()
                         _LOGGER.debug(
-                            "Device %s: Updated boot_timestamp to %s",
+                            "[%s] Updated boot_timestamp to %s",
                             serial, new_boot_time.isoformat()
                         )
                 except (ValueError, TypeError, KeyError) as error:
-                    _LOGGER.debug("Failed to calculate boot timestamp: %s", error)
+                    _LOGGER.debug("[%s] Failed to calculate boot timestamp: %s", serial, error)
             
             if "rssi" in system_data:
                 device_update[DA.RSSI] = system_data["rssi"]
@@ -520,7 +521,7 @@ class WebSocketClient:
                 is_int_not_iterable = "argument of type 'int' is not iterable" in str(error)
 
                 if is_try_again_error:
-                    _LOGGER.info("DEBUG WebSocket error: %s", error)
+                    _LOGGER.debug("WebSocket error: %s", error)
                 elif is_int_not_iterable and self._namespace_disconnect_received:
                     # This is the specific error we're handling - it's part of normal disconnection
                     _LOGGER.debug("Expected WebSocket closure error after namespace disconnect: %s", error)
@@ -634,10 +635,10 @@ class WebSocketClient:
             # Send login message
             login_message = WSC.MESSAGE_TEMPLATES["LOGIN"].format(
                 access_token=self.auth_token)
-            _LOGGER.debug("Sending login message")
+            _LOGGER.debug("WebSocket: Sending login message")
             await self.websocket.send(login_message)
             login_response = await self.websocket.recv()
-            _LOGGER.debug("Login response received")
+            _LOGGER.debug("WebSocket: Login response received")
 
             # Check for authentication errors in the login response
             if "error" in login_response or "exception" in login_response:
@@ -658,11 +659,11 @@ class WebSocketClient:
             device_serials_json = json.dumps(self.device_serials)
             subscribe_msg = WSC.MESSAGE_TEMPLATES["SUBSCRIBE"].format(
                 device_ids=device_serials_json)
-            _LOGGER.debug("Sending subscribe message: %s", subscribe_msg)
+            _LOGGER.debug("WebSocket: Sending subscribe message for devices: %s", device_serials_json)
             await self.websocket.send(subscribe_msg)
             subscribe_response = await self.websocket.recv()
             _LOGGER.debug(
-                "Subscribe response received: %s",
+                "WebSocket: Subscribe response received: %s",
                 subscribe_response)
 
             # Handle subscription response
@@ -679,10 +680,10 @@ class WebSocketClient:
             for serial in self.device_serials:
                 scan_msg = WSC.MESSAGE_TEMPLATES["SCAN"].format(
                     device_id=serial)
-                _LOGGER.debug("Sending scan request for device %s", serial)
+                _LOGGER.debug("[%s] Sending scan request", serial)
                 await self.websocket.send(scan_msg)
                 await self.websocket.recv()
-                _LOGGER.debug("Scan response received for device %s", serial)
+                _LOGGER.debug("[%s] Scan response received", serial)
 
             # Initialize last message time
             self._last_message_time = datetime.now()
@@ -737,7 +738,7 @@ class WebSocketClient:
 
                     if time_since_last_message > ping_timeout:
                         _LOGGER.warning(
-                            "No message received for %.1f seconds (timeout: %.1f seconds). Reconnecting...",
+                            "WebSocket: No message received for %.1f seconds (timeout: %.1f seconds). Reconnecting...",
                             time_since_last_message,
                             ping_timeout)
                         if self.websocket:
@@ -746,7 +747,7 @@ class WebSocketClient:
                     else:
                         # Connection still valid, continue waiting for messages
                         _LOGGER.debug(
-                            "No message received for %.1f seconds, but still within timeout (%.1f seconds). " +
+                            "WebSocket: No message received for %.1f seconds, but still within timeout (%.1f seconds). " +
                             "Continuing...",
                             time_since_last_message,
                             ping_timeout)
@@ -823,9 +824,27 @@ class WebSocketClient:
                 await self.websocket.close()
             return
 
-        _LOGGER.debug(
-            "After %.1f sec, received WebSocket message: %s",
-            time_since_last_message, data)
+        # Try to extract serial from message for logging
+        serial = None
+        try:
+            if isinstance(data, list) and len(data) >= 2 and isinstance(data[1], dict):
+                # Try to get serial from base_info first
+                if "base_info" in data[1] and isinstance(data[1]["base_info"], dict):
+                    serial = data[1]["base_info"].get(DA.SERIAL_NUMBER)
+                # If not in base_info, try direct serial_number field
+                if not serial:
+                    serial = data[1].get(DA.SERIAL_NUMBER)
+        except (TypeError, KeyError, IndexError):
+            pass  # Silently ignore if we can't extract serial
+
+        if serial:
+            _LOGGER.debug(
+                "[%s] After %.1f sec, received WebSocket message: %s",
+                serial, time_since_last_message, data)
+        else:
+            _LOGGER.debug(
+                "After %.1f sec, received WebSocket message: %s",
+                time_since_last_message, data)
 
         if data[0] != "event":
             _LOGGER.debug(
@@ -846,7 +865,7 @@ class WebSocketClient:
                 return
             if serial not in self.device_serials:
                 _LOGGER.warning(
-                    "Received base_info for unknown device: %s", serial)
+                    "[%s] Received base_info for unknown device", serial)
                 return
 
             device_update = self._message_handler.process_base_info(

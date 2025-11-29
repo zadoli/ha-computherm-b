@@ -60,7 +60,7 @@ async def async_setup_entry(
 
         device_data = coordinator.device_data.get(device_id, {})
         if not device_data:
-            _LOGGER.debug("Device %s has no data yet", device_id)
+            _LOGGER.debug("[%s] Device has no data yet", device_id)
             return
 
         entities_to_add = []
@@ -84,12 +84,12 @@ async def async_setup_entry(
 
         if entities_to_add:
             async_add_entities(entities_to_add, True)
-            _LOGGER.info("Sensor entities created for device %s", device_id)
+            _LOGGER.info("[%s] Sensor entities created", device_id)
 
     # Add entities for devices that already have base_info
     for serial in coordinator.devices:
         if _is_device_ready(coordinator, serial):
-            _LOGGER.info("Found existing base_info for device %s", serial)
+            _LOGGER.info("[%s] Found existing base_info", serial)
             _async_add_entities_for_device(serial)
 
     # Register listener for coordinator updates
@@ -106,11 +106,11 @@ def _is_device_ready(
         device_id: str) -> bool:
     """Check if device is ready for entity creation."""
     if device_id not in coordinator.devices_with_base_info:
-        _LOGGER.debug("Device %s has no base_info yet", device_id)
+        _LOGGER.debug("[%s] Device has no base_info yet", device_id)
         return False
 
     if not coordinator.devices_with_base_info[device_id]:
-        _LOGGER.debug("Device %s has empty base_info", device_id)
+        _LOGGER.debug("[%s] Device has empty base_info", device_id)
         return False
 
     return True
@@ -137,7 +137,7 @@ def _add_core_sensors(
 
         if entity_tracking_key not in existing_entities["temperature"]:
             _LOGGER.info(
-                "Creating temperature sensor entity for device %s, sensor %s",
+                "[%s] Creating temperature sensor entity, sensor %s",
                 device_id,
                 sensor_key)
             entities_to_add.append(
@@ -145,20 +145,29 @@ def _add_core_sensors(
                     coordinator, device_id, sensor_key))
             existing_entities["temperature"].add(entity_tracking_key)
 
-    # Fallback: if no sensor_readings, create default temperature sensor for backward compatibility
-    if not sensor_readings and device_id not in existing_entities["temperature"]:
+    # Add humidity sensor if device has humidity readings AND we have a name for it
+    # Check if there's a HUMIDITY type sensor with a name in sensor_readings OR sensor_metadata
+    has_humidity_sensor_with_name = False
+    
+    if DA.SENSOR_READINGS in device_data:
+        for sensor_key, sensor_info in device_data[DA.SENSOR_READINGS].items():
+            if sensor_info.get("type") == "HUMIDITY":
+                # Check if this humidity sensor has a name
+                if sensor_info.get("name", "").strip():
+                    has_humidity_sensor_with_name = True
+                    break
+    
+    # If no name in sensor_readings, check sensor_metadata
+    if not has_humidity_sensor_with_name and "sensor_metadata" in device_data:
+        for sensor_meta in device_data["sensor_metadata"]:
+            if sensor_meta.get("type") == "HUMIDITY":
+                if sensor_meta.get("name", "").strip():
+                    has_humidity_sensor_with_name = True
+                    break
+    
+    if device_id not in existing_entities["humidity"] and has_humidity_sensor_with_name:
         _LOGGER.info(
-            "Creating default temperature sensor entity for device %s (backward compatibility)",
-            device_id)
-        entities_to_add.append(
-            ComputhermTemperatureSensor(
-                coordinator, device_id, None))
-        existing_entities["temperature"].add(device_id)
-
-    # Add humidity sensor if device has humidity readings
-    if device_id not in existing_entities["humidity"] and DA.HUMIDITY in device_data:
-        _LOGGER.info(
-            "Creating humidity sensor entity for device %s",
+            "[%s] Creating humidity sensor entity",
             device_id)
         entities_to_add.append(
             ComputhermHumiditySensor(
@@ -168,7 +177,7 @@ def _add_core_sensors(
     # Add relay binary sensor
     if device_id not in existing_entities["relay"]:
         _LOGGER.info(
-            "Creating relay binary sensor entity for device %s",
+            "[%s] Creating relay binary sensor entity",
             device_id)
         entities_to_add.append(ComputhermRelaySensor(coordinator, device_id))
         existing_entities["relay"].add(device_id)
@@ -196,7 +205,7 @@ def _add_diagnostic_sensors(
         if "battery" in sensor_info:
             entity_tracking_key = f"{device_id}_{sensor_key}_battery"
             if entity_tracking_key not in existing_entities["battery"]:
-                _LOGGER.info("Creating battery sensor for device %s, sensor %s", device_id, sensor_key)
+                _LOGGER.info("[%s] Creating battery sensor, sensor %s", device_id, sensor_key)
                 entities_to_add.append(
                     ComputhermBatterySensor(coordinator, device_id, sensor_key, sensor_name))
                 existing_entities["battery"].add(entity_tracking_key)
@@ -205,7 +214,7 @@ def _add_diagnostic_sensors(
         if "rssi" in sensor_info:
             entity_tracking_key = f"{device_id}_{sensor_key}_rssi"
             if entity_tracking_key not in existing_entities["rssi"]:
-                _LOGGER.info("Creating rssi sensor for device %s, sensor %s", device_id, sensor_key)
+                _LOGGER.info("[%s] Creating rssi sensor, sensor %s", device_id, sensor_key)
                 entities_to_add.append(
                     ComputhermRSSISensor(coordinator, device_id, sensor_key, sensor_name))
                 existing_entities["rssi"].add(entity_tracking_key)
@@ -214,7 +223,7 @@ def _add_diagnostic_sensors(
         if "rssi_level" in sensor_info:
             entity_tracking_key = f"{device_id}_{sensor_key}_rssi_level"
             if entity_tracking_key not in existing_entities["rssi_level"]:
-                _LOGGER.info("Creating rssi_level sensor for device %s, sensor %s", device_id, sensor_key)
+                _LOGGER.info("[%s] Creating rssi_level sensor, sensor %s", device_id, sensor_key)
                 entities_to_add.append(
                     ComputhermRSSILevelSensor(coordinator, device_id, sensor_key, sensor_name))
                 existing_entities["rssi_level"].add(entity_tracking_key)
@@ -222,19 +231,19 @@ def _add_diagnostic_sensors(
     # Add device-level diagnostic sensors (from base_info, without sensor name)
     # Device-level RSSI sensor if available
     if DA.RSSI in device_data and device_id not in existing_entities["rssi"]:
-        _LOGGER.info("Creating device-level rssi sensor for device %s", device_id)
+        _LOGGER.info("[%s] Creating device-level rssi sensor", device_id)
         entities_to_add.append(ComputhermRSSISensor(coordinator, device_id))
         existing_entities["rssi"].add(device_id)
 
     # Device-level RSSI Level sensor if available
     if DA.RSSI_LEVEL in device_data and device_id not in existing_entities["rssi_level"]:
-        _LOGGER.info("Creating device-level rssi_level sensor for device %s", device_id)
+        _LOGGER.info("[%s] Creating device-level rssi_level sensor", device_id)
         entities_to_add.append(ComputhermRSSILevelSensor(coordinator, device_id))
         existing_entities["rssi_level"].add(device_id)
 
     # Add device-level source sensor if available
     if DA.SOURCE in device_data and device_id not in existing_entities["source"]:
-        _LOGGER.info("Creating source sensor for device %s", device_id)
+        _LOGGER.info("[%s] Creating source sensor", device_id)
         entities_to_add.append(ComputhermSourceSensor(coordinator, device_id))
         existing_entities["source"].add(device_id)
 
@@ -243,25 +252,25 @@ def _add_diagnostic_sensors(
     if wifi_info:
         # Create SSID sensor
         if "ssid" in wifi_info and device_id not in existing_entities["ssid"]:
-            _LOGGER.info("Creating SSID sensor for device %s", device_id)
+            _LOGGER.info("[%s] Creating SSID sensor", device_id)
             entities_to_add.append(ComputhermSSIDSensor(coordinator, device_id))
             existing_entities["ssid"].add(device_id)
 
         # Create BSSID sensor
         if "bssid" in wifi_info and device_id not in existing_entities["bssid"]:
-            _LOGGER.info("Creating BSSID sensor for device %s", device_id)
+            _LOGGER.info("[%s] Creating BSSID sensor", device_id)
             entities_to_add.append(ComputhermBSSIDSensor(coordinator, device_id))
             existing_entities["bssid"].add(device_id)
 
         # Create IP sensor
         if "ip4" in wifi_info and device_id not in existing_entities["wifi_ip"]:
-            _LOGGER.info("Creating IP sensor for device %s", device_id)
+            _LOGGER.info("[%s] Creating IP sensor", device_id)
             entities_to_add.append(ComputhermIPSensor(coordinator, device_id))
             existing_entities["wifi_ip"].add(device_id)
 
         # Create DHCP hostname sensor
         if "dhcp_hostname" in wifi_info and device_id not in existing_entities["dhcp_hostname"]:
-            _LOGGER.info("Creating DHCP hostname sensor for device %s", device_id)
+            _LOGGER.info("[%s] Creating DHCP hostname sensor", device_id)
             entities_to_add.append(ComputhermDHCPSensor(coordinator, device_id))
             existing_entities["dhcp_hostname"].add(device_id)
 
@@ -270,7 +279,7 @@ def _add_diagnostic_sensors(
     
     if "uptime" in system_data:
         if device_id not in existing_entities["uptime"]:
-            _LOGGER.info("Creating uptime sensor for device %s", device_id)
+            _LOGGER.info("[%s] Creating uptime sensor", device_id)
             entities_to_add.append(ComputhermUptimeSensor(coordinator, device_id))
             existing_entities["uptime"].add(device_id)
 
@@ -333,7 +342,8 @@ class ComputhermSensorBase(CoordinatorEntity):
         self._attr_unique_id = f"{DOMAIN}_{self.device_id}_{entity_name}"
 
         _LOGGER.info(
-            "Entity initialized - ID: %s, Name: %s",
+            "[%s] Entity initialized - ID: %s, Name: %s",
+            self.device_id,
             self._attr_unique_id,
             entity_name
         )
@@ -414,7 +424,8 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
                 self._attr_translation_placeholders = {"sensor_name": sensor_name}
 
                 _LOGGER.info(
-                    "Temperature entity initialized - ID: %s, Sensor Name: %s, Sensor Key: %s",
+                    "[%s] Temperature entity initialized - ID: %s, Sensor Name: %s, Sensor Key: %s",
+                    self.device_id,
                     self._attr_unique_id,
                     sensor_name,
                     self.sensor_key
@@ -443,7 +454,8 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
         self._attr_unique_id = f"{DOMAIN}_{self.device_id}_{entity_name}"
 
         _LOGGER.info(
-            "Entity initialized - ID: %s, Name: %s",
+            "[%s] Entity initialized - ID: %s, Name: %s",
+            self.device_id,
             self._attr_unique_id,
             entity_name
         )
@@ -519,30 +531,52 @@ class ComputhermHumiditySensor(ComputhermNumericSensorBase):
     def _setup_entity_info(self) -> None:
         """Set up entity information."""
         device_data = self.coordinator.device_data.get(self.device_id, {})
-        if not device_data or 'available_sensor_ids' not in device_data:
-            _LOGGER.error(
-                "Device %s has no sensor data available",
-                self.device_id)
-            entity_name = self._get_default_name()
-            # Set placeholder with default name
-            self._attr_translation_placeholders = {"sensor_name": "Humidity"}
-        else:
-            entity_name = self._get_entity_name(device_data)
-            # Try to get sensor name from device data for placeholder
-            sensor_name = "Humidity"  # Default fallback
-            if 'available_sensor_ids' in device_data and device_data['available_sensor_ids']:
-                sensor_id = str(device_data['available_sensor_ids'][0])
-                if 'sensors' in device_data and sensor_id in device_data['sensors']:
-                    sensor_name = device_data["sensors"][sensor_id].get("name", "Humidity")
-            # Always set the placeholder
-            self._attr_translation_placeholders = {"sensor_name": sensor_name}
-
-        self._attr_unique_id = f"{DOMAIN}_{self.device_id}_{entity_name}"
+        
+        # Try to find humidity sensor name - prioritize metadata over sensor_readings
+        sensor_name = ""
+        humidity_sensor_key = None
+        
+        # First, try sensor_metadata (most reliable source for names)
+        if "sensor_metadata" in device_data:
+            for sensor_meta in device_data["sensor_metadata"]:
+                if sensor_meta.get("type") == "HUMIDITY":
+                    sensor_name = sensor_meta.get("name", "").strip()
+                    if sensor_name:
+                        _LOGGER.info("[%s] Using sensor name from metadata for humidity: %s", self.device_id, sensor_name)
+                        break
+        
+        # If no name from metadata, try sensor_readings
+        if not sensor_name and DA.SENSOR_READINGS in device_data:
+            sensor_readings = device_data[DA.SENSOR_READINGS]
+            
+            # Look for ONBOARD_HUMIDITY first (most common for humidity sensors)
+            if "ONBOARD_HUMIDITY" in sensor_readings:
+                humidity_sensor_key = "ONBOARD_HUMIDITY"
+                sensor_name = sensor_readings[humidity_sensor_key].get("name", "").strip()
+            else:
+                # Fallback: search for any HUMIDITY type sensor
+                for key, sensor_info in sensor_readings.items():
+                    if sensor_info.get("type") == "HUMIDITY":
+                        humidity_sensor_key = key
+                        sensor_name = sensor_info.get("name", "").strip()
+                        break
+        
+        # Final fallback to default if still empty
+        if not sensor_name:
+            sensor_name = "Humidity"
+            _LOGGER.warning("No name found for humidity sensor on device %s, using fallback", self.device_id)
+        
+        # Always set the placeholder
+        self._attr_translation_placeholders = {"sensor_name": sensor_name}
+        
+        # Use sensor name for unique_id
+        self._attr_unique_id = f"{DOMAIN}_{self.device_id}_{sensor_name}"
 
         _LOGGER.info(
-            "Entity initialized - ID: %s, Name: %s",
+            "[%s] Entity initialized - ID: %s, Name: %s",
+            self.device_id,
             self._attr_unique_id,
-            entity_name
+            sensor_name
         )
 
     def _process_entity_name(self, base_name: str) -> str:
@@ -592,7 +626,8 @@ class ComputhermBatterySensor(ComputhermDiagnosticSensorBase):
             # Use translation_placeholders for multi-sensor support
             self._attr_translation_placeholders = {"sensor_name": self.sensor_name}
             _LOGGER.info(
-                "Battery entity initialized - ID: %s, Sensor Name: %s, Sensor Key: %s",
+                "[%s] Battery entity initialized - ID: %s, Sensor Name: %s, Sensor Key: %s",
+                self.device_id,
                 self._attr_unique_id,
                 self.sensor_name,
                 self.sensor_key
@@ -666,7 +701,8 @@ class ComputhermRSSISensor(ComputhermDiagnosticSensorBase):
             # Use translation_placeholders for multi-sensor support
             self._attr_translation_placeholders = {"sensor_name": self.sensor_name}
             _LOGGER.info(
-                "RSSI entity initialized - ID: %s, Sensor Name: %s, Sensor Key: %s",
+                "[%s] RSSI entity initialized - ID: %s, Sensor Name: %s, Sensor Key: %s",
+                self.device_id,
                 self._attr_unique_id,
                 self.sensor_name,
                 self.sensor_key
@@ -741,7 +777,8 @@ class ComputhermRSSILevelSensor(ComputhermSensorBase, SensorEntity):
             # Use translation_placeholders for multi-sensor support
             self._attr_translation_placeholders = {"sensor_name": self.sensor_name}
             _LOGGER.info(
-                "RSSI Level entity initialized - ID: %s, Sensor Name: %s, Sensor Key: %s",
+                "[%s] RSSI Level entity initialized - ID: %s, Sensor Name: %s, Sensor Key: %s",
+                self.device_id,
                 self._attr_unique_id,
                 self.sensor_name,
                 self.sensor_key
@@ -920,7 +957,7 @@ class ComputhermUptimeSensor(ComputhermSensorBase, SensorEntity):
         current_boot_timestamp = system_data.get("boot_timestamp")
         
         if current_boot_timestamp != self._last_boot_timestamp:
-            _LOGGER.debug("Device %s has updated uptime data: %s", self.device_id, system_data.get("uptime"))
+            _LOGGER.debug("[%s] Device has updated uptime data: %s", self.device_id, system_data.get("uptime"))
             self._last_boot_timestamp = current_boot_timestamp
             super()._handle_coordinator_update()
 

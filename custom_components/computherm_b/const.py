@@ -11,6 +11,7 @@ API_LOGIN_ENDPOINT: Final[str] = "/api/auth/login"
 API_DEVICES_ENDPOINT: Final[str] = "/api/devices"
 API_DEVICE_CONTROL_ENDPOINT: Final[str] = "/api/devices/{device_id}/cmd"
 API_WIFI_STATE_ENDPOINT: Final[str] = "/api/devices/{device_id}/cmd/wifi-state"
+API_SENSORS_ENDPOINT: Final[str] = "/api/devices/{device_id}/sensors"
 
 # Device Types and Models
 DEVICE_TYPES: Final[Dict[str, str]] = {
