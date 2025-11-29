@@ -391,6 +391,14 @@ class WebSocketClient:
         self._message_handler = WebSocketMessageHandler()
         # Event to signal a forced reconnection
         self._force_reconnect = asyncio.Event()
+        # Track which devices have received base_info
+        self._devices_with_base_info: set = set()
+        # Track scan retry attempts per device
+        self._scan_retry_count: Dict[str, int] = {}
+        # Maximum scan retry attempts
+        self._max_scan_retries: Final[int] = 3
+        # Timeout for base_info to arrive after scan (seconds)
+        self._base_info_timeout: Final[float] = 10.0
 
     async def start(self) -> None:
         """Start the WebSocket connection."""
@@ -629,6 +637,74 @@ class WebSocketClient:
         self._ping_interval = connect_data.get("pingInterval", 25000) / 1000
         # _LOGGER.debug("WebSocket initialized with SID: %s", self._sid)
 
+    async def _scan_device_with_retry(self, serial: str, initial_scan: bool = True) -> None:
+        """Send scan request for a device with retry logic."""
+        scan_msg = WSC.MESSAGE_TEMPLATES["SCAN"].format(device_id=serial)
+        _LOGGER.debug("[%s] Sending scan request", serial)
+        await self.websocket.send(scan_msg)
+        
+        # Only consume the response on initial scan during setup
+        # Retry scans will be processed by the main message loop
+        if initial_scan:
+            await self.websocket.recv()
+            _LOGGER.debug("[%s] Scan response received", serial)
+        
+        # Initialize retry count for this device
+        if serial not in self._scan_retry_count:
+            self._scan_retry_count[serial] = 0
+
+    async def _monitor_base_info_timeout(self) -> None:
+        """Monitor devices that haven't received base_info and retry scan if needed."""
+        await asyncio.sleep(self._base_info_timeout)
+        
+        if self._stopping or not self.websocket:
+            return
+        
+        # Check which devices are missing base_info
+        missing_base_info = set(self.device_serials) - self._devices_with_base_info
+        
+        for serial in missing_base_info:
+            retry_count = self._scan_retry_count.get(serial, 0)
+            
+            if retry_count < self._max_scan_retries:
+                _LOGGER.warning(
+                    "[%s] No base_info received after %.1f seconds (attempt %d/%d). Retrying scan...",
+                    serial,
+                    self._base_info_timeout,
+                    retry_count + 1,
+                    self._max_scan_retries
+                )
+                
+                self._scan_retry_count[serial] = retry_count + 1
+                
+                try:
+                    # Add exponential backoff between retries
+                    backoff = 2 ** retry_count
+                    await asyncio.sleep(backoff)
+                    
+                    if self.websocket and not self._stopping:
+                        await self._scan_device_with_retry(serial, initial_scan=False)
+                        # Schedule another check after timeout
+                        asyncio.create_task(self._monitor_base_info_timeout())
+                except Exception as error:
+                    _LOGGER.error(
+                        "[%s] Error during scan retry: %s",
+                        serial,
+                        error
+                    )
+            else:
+                _LOGGER.error(
+                    "[%s] Failed to receive base_info after %d attempts. Will try to synthesize base_info from available data.",
+                    serial,
+                    self._max_scan_retries
+                )
+                # Trigger fallback base_info generation in coordinator
+                if self.coordinator:
+                    self.data_callback({
+                        "synthesize_base_info_needed": True,
+                        "device_serial": serial
+                    })
+
     async def _setup_connection(self) -> None:
         """Set up the connection with login and subscriptions."""
         try:
@@ -678,15 +754,13 @@ class WebSocketClient:
 
             # Request properties for each device
             for serial in self.device_serials:
-                scan_msg = WSC.MESSAGE_TEMPLATES["SCAN"].format(
-                    device_id=serial)
-                _LOGGER.debug("[%s] Sending scan request", serial)
-                await self.websocket.send(scan_msg)
-                await self.websocket.recv()
-                _LOGGER.debug("[%s] Scan response received", serial)
+                await self._scan_device_with_retry(serial)
 
             # Initialize last message time
             self._last_message_time = datetime.now()
+            
+            # Start monitoring for devices that didn't receive base_info
+            asyncio.create_task(self._monitor_base_info_timeout())
         except Exception as error:
             _LOGGER.error("Error during setup: %s", error)
             if self.websocket:
@@ -867,6 +941,10 @@ class WebSocketClient:
                 _LOGGER.warning(
                     "[%s] Received base_info for unknown device", serial)
                 return
+
+            # Mark device as having received base_info
+            self._devices_with_base_info.add(serial)
+            _LOGGER.debug("[%s] Received base_info successfully", serial)
 
             device_update = self._message_handler.process_base_info(
                 event_data, serial, self.coordinator)

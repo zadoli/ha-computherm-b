@@ -229,6 +229,17 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 asyncio.create_task(self._handle_token_refresh())
                 return
 
+            # Handle synthetic base_info request
+            if "synthesize_base_info_needed" in update:
+                device_serial = update.get("device_serial")
+                if device_serial:
+                    _LOGGER.info(
+                        "[%s] Synthesizing base_info from available data",
+                        device_serial
+                    )
+                    self._synthesize_base_info(device_serial)
+                return
+
             # Handle device updates
             for serial, device_data in update.items():
                 if serial in self.devices:
@@ -343,19 +354,19 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
     async def _fetch_sensor_metadata(self, serial: str, device_id: int) -> None:
         """Fetch sensor metadata from API for a device."""
         try:
-            _LOGGER.info("[%s] Starting sensor metadata fetch (ID: %s)", serial, device_id)
+            _LOGGER.debug("[%s] Starting sensor metadata fetch (ID: %s)", serial, device_id)
             endpoint = API_SENSORS_ENDPOINT.format(device_id=device_id)
             url = f"{API_BASE_URL}{endpoint}"
-            _LOGGER.info("[%s] Sensor metadata API URL: %s", serial, url)
+            _LOGGER.debug("[%s] Sensor metadata API URL: %s", serial, url)
 
             async with self.session.get(
                 url,
                 headers={"Authorization": f"Bearer {self.auth_token}"},
             ) as resp:
-                _LOGGER.info("[%s] Sensor metadata API response status: %s", serial, resp.status)
+                _LOGGER.debug("[%s] Sensor metadata API response status: %s", serial, resp.status)
                 resp.raise_for_status()
                 sensors_data = await resp.json()
-                _LOGGER.info("[%s] Sensor metadata API response data: %s", serial, sensors_data)
+                _LOGGER.debug("[%s] Sensor metadata API response data: %s", serial, sensors_data)
 
                 # Check if device exists in device_data
                 if serial not in self.device_data:
@@ -367,7 +378,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 
                 # Store the sensor metadata
                 updated_device_data["sensor_metadata"] = sensors_data
-                _LOGGER.info("[%s] Sensor metadata stored: %d sensors found", serial, len(sensors_data))
+                _LOGGER.debug("[%s] Sensor metadata stored: %d sensors found", serial, len(sensors_data))
 
                 # Update sensor_readings with names from metadata if they exist
                 if DA.SENSOR_READINGS in updated_device_data:
@@ -399,7 +410,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
 
                 # Notify HA of the update
                 self.async_set_updated_data({**self.device_data})
-                _LOGGER.info("[%s] Sensor metadata update completed successfully", serial)
+                _LOGGER.debug("[%s] Sensor metadata update completed successfully", serial)
 
         except ClientResponseError as error:
             if error.status == 401:
@@ -470,6 +481,85 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 _LOGGER.error("[%s] API error fetching WiFi state: status=%s, error=%s", serial, error.status, error)
         except Exception as error:
             _LOGGER.error("[%s] Failed to fetch WiFi state: %s", serial, error, exc_info=True)
+
+    def _synthesize_base_info(self, serial: str) -> None:
+        """Synthesize base_info from available device data when WebSocket doesn't provide it."""
+        try:
+            if serial not in self.devices:
+                _LOGGER.error("[%s] Cannot synthesize base_info: device not found in devices dict", serial)
+                return
+
+            if serial not in self.device_data:
+                self._initialize_device_data(serial)
+
+            device_info = self.devices[serial]
+            
+            # Create a minimal base_info structure from devices dictionary
+            synthetic_base_info = {
+                "id": device_info.get(DA.DEVICE_ID),
+                "serial_number": serial,
+                "brand": device_info.get("brand"),
+                "type": device_info.get("type"),
+                "user_id": device_info.get("user_id"),
+                "fw_ver": device_info.get(DA.FW_VERSION),
+                "device_type": device_info.get(DA.DEVICE_TYPE),
+                "name": f"{device_info.get(DA.DEVICE_TYPE, 'Thermostat')} {serial}",
+                "timezone": "Europe/Budapest",  # Default timezone
+                "group_color": None,
+                "assigned_partner": None,
+            }
+
+            # Check if we already have some data from WebSocket updates
+            current_data = self.device_data.get(serial, {})
+            
+            # Build synthetic device update with base_info
+            device_update = {
+                "base_info": synthetic_base_info,
+                DA.ONLINE: current_data.get(DA.ONLINE, False),
+                "available_sensor_ids": [],
+                "available_relay_ids": ["1"],  # Assume at least one relay
+                "sensors": {},
+                "relays": {
+                    "1": {
+                        "relay": 1,
+                        "type": "THERMOSTAT",
+                        "mode": current_data.get(DA.MODE, "MANUAL"),
+                        "function": current_data.get(DA.FUNCTION, "HEATING"),
+                        "relay_state": current_data.get(DA.RELAY_STATE, False),
+                    }
+                },
+            }
+
+            # Copy over any existing sensor readings
+            if DA.SENSOR_READINGS in current_data:
+                device_update[DA.SENSOR_READINGS] = current_data[DA.SENSOR_READINGS]
+
+            # Copy over temperature data if available
+            if DA.TEMPERATURE in current_data:
+                device_update[DA.TEMPERATURE] = current_data[DA.TEMPERATURE]
+            if DA.CURRENT_TEMPERATURE in current_data:
+                device_update[DA.CURRENT_TEMPERATURE] = current_data[DA.CURRENT_TEMPERATURE]
+            if DA.TARGET_TEMPERATURE in current_data:
+                device_update[DA.TARGET_TEMPERATURE] = current_data[DA.TARGET_TEMPERATURE]
+
+            _LOGGER.warning(
+                "[%s] Created synthetic base_info. Device may have limited functionality until real base_info is received.",
+                serial
+            )
+
+            # Process the synthetic base_info as if it came from WebSocket
+            self._process_base_info_update(serial, device_update)
+
+            # Notify HA of the update
+            self.async_set_updated_data(self.device_data)
+
+        except Exception as error:
+            _LOGGER.error(
+                "[%s] Failed to synthesize base_info: %s",
+                serial,
+                error,
+                exc_info=True
+            )
 
     async def async_stop(self) -> None:
         """Stop the coordinator."""
