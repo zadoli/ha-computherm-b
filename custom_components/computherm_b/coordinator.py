@@ -375,7 +375,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
 
                 # Create a new device data dict to ensure change detection works
                 updated_device_data = {**self.device_data[serial]}
-                
+
                 # Store the sensor metadata
                 updated_device_data["sensor_metadata"] = sensors_data
                 _LOGGER.debug("[%s] Sensor metadata stored: %d sensors found", serial, len(sensors_data))
@@ -387,7 +387,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                         src = sensor_meta.get("src", "").upper()
                         sensor_id = sensor_meta.get("id")
                         sensor_type = sensor_meta.get("type", "").upper()
-                        
+
                         # For ONBOARD sensors, use src_type as key
                         if src == "ONBOARD":
                             sensor_key = f"{src}_{sensor_type}"
@@ -396,14 +396,15 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                         else:
                             sensor_num = sensor_meta.get("sensor", 1)
                             sensor_key = f"{src}_{sensor_num}"
-                        
+
                         # Update the name if this sensor exists in sensor_readings
                         if sensor_key in updated_device_data[DA.SENSOR_READINGS]:
                             name = sensor_meta.get("name", "").strip()
                             if name:
                                 old_name = updated_device_data[DA.SENSOR_READINGS][sensor_key].get("name", "")
                                 updated_device_data[DA.SENSOR_READINGS][sensor_key]["name"] = name
-                                _LOGGER.debug("[%s] Updated sensor %s name from '%s' to '%s'", serial, sensor_key, old_name, name)
+                                _LOGGER.debug("[%s] Updated sensor %s name from '%s' to '%s'",
+                                              serial, sensor_key, old_name, name)
 
                 # Update the device_data with the new dict
                 self.device_data[serial] = updated_device_data
@@ -414,9 +415,11 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
 
         except ClientResponseError as error:
             if error.status == 401:
-                _LOGGER.warning("[%s] Authentication failed while fetching sensor metadata (status: %s)", serial, error.status)
+                _LOGGER.warning(
+                    "[%s] Authentication failed while fetching sensor metadata (status: %s)", serial, error.status)
             else:
-                _LOGGER.error("[%s] API error fetching sensor metadata: status=%s, error=%s", serial, error.status, error)
+                _LOGGER.error("[%s] API error fetching sensor metadata: status=%s, error=%s",
+                              serial, error.status, error)
         except Exception as error:
             _LOGGER.error("[%s] Failed to fetch sensor metadata: %s", serial, error, exc_info=True)
 
@@ -445,11 +448,11 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 # Extract system data from response (API returns it wrapped in 'system' key)
                 system_data = wifi_data.get("system", {})
                 _LOGGER.debug("[%s] Extracted system data: %s", serial, system_data)
-                
+
                 # Create a new device data dict to ensure change detection works
                 _LOGGER.debug("[%s] Creating new device data dict", serial)
                 updated_device_data = {**self.device_data[serial]}
-                
+
                 # Store the WiFi system info for sensors to access
                 _LOGGER.debug("[%s] Storing WiFi info", serial)
                 updated_device_data["wifi_info"] = system_data
@@ -458,12 +461,12 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 # Always update RSSI values from WiFi API (this is the authoritative source)
                 if "rssi" in system_data:
                     _LOGGER.debug("[%s] Updating RSSI from WiFi data: %s (old: %s)", serial,
-                               system_data["rssi"], updated_device_data.get(DA.RSSI))
+                                  system_data["rssi"], updated_device_data.get(DA.RSSI))
                     updated_device_data[DA.RSSI] = system_data["rssi"]
-                    
+
                 if "rssi_level" in system_data:
                     _LOGGER.debug("[%s] Updating RSSI_LEVEL from WiFi data: %s (old: %s)", serial,
-                               system_data["rssi_level"], updated_device_data.get(DA.RSSI_LEVEL))
+                                  system_data["rssi_level"], updated_device_data.get(DA.RSSI_LEVEL))
                     updated_device_data[DA.RSSI_LEVEL] = system_data["rssi_level"]
 
                 # Update the device_data with the new dict
@@ -476,7 +479,8 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
 
         except ClientResponseError as error:
             if error.status == 401:
-                _LOGGER.warning("[%s] Authentication failed while fetching WiFi state (status: %s)", serial, error.status)
+                _LOGGER.warning("[%s] Authentication failed while fetching WiFi state (status: %s)",
+                                serial, error.status)
             else:
                 _LOGGER.error("[%s] API error fetching WiFi state: status=%s, error=%s", serial, error.status, error)
         except Exception as error:
@@ -493,7 +497,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 self._initialize_device_data(serial)
 
             device_info = self.devices[serial]
-            
+
             # Create a minimal base_info structure from devices dictionary
             synthetic_base_info = {
                 "id": device_info.get(DA.DEVICE_ID),
@@ -511,7 +515,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
 
             # Check if we already have some data from WebSocket updates
             current_data = self.device_data.get(serial, {})
-            
+
             # Build synthetic device update with base_info
             device_update = {
                 "base_info": synthetic_base_info,
@@ -544,8 +548,7 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
 
             _LOGGER.warning(
                 "[%s] Created synthetic base_info. Device may have limited functionality until real base_info is received.",
-                serial
-            )
+                serial)
 
             # Process the synthetic base_info as if it came from WebSocket
             self._process_base_info_update(serial, device_update)

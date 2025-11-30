@@ -148,7 +148,7 @@ def _add_core_sensors(
     # Add humidity sensor if device has humidity readings AND we have a name for it
     # Check if there's a HUMIDITY type sensor with a name in sensor_readings OR sensor_metadata
     has_humidity_sensor_with_name = False
-    
+
     if DA.SENSOR_READINGS in device_data:
         for sensor_key, sensor_info in device_data[DA.SENSOR_READINGS].items():
             if sensor_info.get("type") == "HUMIDITY":
@@ -156,7 +156,7 @@ def _add_core_sensors(
                 if sensor_info.get("name", "").strip():
                     has_humidity_sensor_with_name = True
                     break
-    
+
     # If no name in sensor_readings, check sensor_metadata
     if not has_humidity_sensor_with_name and "sensor_metadata" in device_data:
         for sensor_meta in device_data["sensor_metadata"]:
@@ -164,7 +164,7 @@ def _add_core_sensors(
                 if sensor_meta.get("name", "").strip():
                     has_humidity_sensor_with_name = True
                     break
-    
+
     if device_id not in existing_entities["humidity"] and has_humidity_sensor_with_name:
         _LOGGER.info(
             "[%s] Creating humidity sensor entity",
@@ -276,7 +276,7 @@ def _add_diagnostic_sensors(
 
     # Add uptime sensor if uptime data is available in system data
     system_data = device_data.get("system", {})
-    
+
     if "uptime" in system_data:
         if device_id not in existing_entities["uptime"]:
             _LOGGER.info("[%s] Creating uptime sensor", device_id)
@@ -490,7 +490,8 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
             sensor_readings = self.device_data.get(DA.SENSOR_READINGS, {})
             if self.sensor_key in sensor_readings:
                 # Sensor is available if device is online and it has data
-                return self.device_data.get(DA.ONLINE, False) and sensor_readings[self.sensor_key].get("reading") is not None
+                return self.device_data.get(DA.ONLINE,
+                                            False) and sensor_readings[self.sensor_key].get("reading") is not None
 
         # Fallback to device online status
         return self.device_data.get(DA.ONLINE, False)
@@ -531,24 +532,25 @@ class ComputhermHumiditySensor(ComputhermNumericSensorBase):
     def _setup_entity_info(self) -> None:
         """Set up entity information."""
         device_data = self.coordinator.device_data.get(self.device_id, {})
-        
+
         # Try to find humidity sensor name - prioritize metadata over sensor_readings
         sensor_name = ""
         humidity_sensor_key = None
-        
+
         # First, try sensor_metadata (most reliable source for names)
         if "sensor_metadata" in device_data:
             for sensor_meta in device_data["sensor_metadata"]:
                 if sensor_meta.get("type") == "HUMIDITY":
                     sensor_name = sensor_meta.get("name", "").strip()
                     if sensor_name:
-                        _LOGGER.info("[%s] Using sensor name from metadata for humidity: %s", self.device_id, sensor_name)
+                        _LOGGER.info("[%s] Using sensor name from metadata for humidity: %s",
+                                     self.device_id, sensor_name)
                         break
-        
+
         # If no name from metadata, try sensor_readings
         if not sensor_name and DA.SENSOR_READINGS in device_data:
             sensor_readings = device_data[DA.SENSOR_READINGS]
-            
+
             # Look for ONBOARD_HUMIDITY first (most common for humidity sensors)
             if "ONBOARD_HUMIDITY" in sensor_readings:
                 humidity_sensor_key = "ONBOARD_HUMIDITY"
@@ -560,15 +562,15 @@ class ComputhermHumiditySensor(ComputhermNumericSensorBase):
                         humidity_sensor_key = key
                         sensor_name = sensor_info.get("name", "").strip()
                         break
-        
+
         # Final fallback to default if still empty
         if not sensor_name:
             sensor_name = "Humidity"
             _LOGGER.warning("No name found for humidity sensor on device %s, using fallback", self.device_id)
-        
+
         # Always set the placeholder
         self._attr_translation_placeholders = {"sensor_name": sensor_name}
-        
+
         # Use sensor name for unique_id
         self._attr_unique_id = f"{DOMAIN}_{self.device_id}_{sensor_name}"
 
@@ -955,7 +957,7 @@ class ComputhermUptimeSensor(ComputhermSensorBase, SensorEntity):
         # Only update if boot_timestamp has changed
         system_data = self.device_data.get("system", {})
         current_boot_timestamp = system_data.get("boot_timestamp")
-        
+
         if current_boot_timestamp != self._last_boot_timestamp:
             _LOGGER.debug("[%s] Device has updated uptime data: %s", self.device_id, system_data.get("uptime"))
             self._last_boot_timestamp = current_boot_timestamp
@@ -965,15 +967,15 @@ class ComputhermUptimeSensor(ComputhermSensorBase, SensorEntity):
     def native_value(self) -> Any | None:
         """Return the boot/start timestamp."""
         from datetime import datetime
-        
+
         system_data = self.device_data.get("system", {})
-        
+
         # Use pre-calculated boot timestamp from websocket
         boot_timestamp = system_data.get("boot_timestamp")
-        
+
         if not boot_timestamp:
             return None
-        
+
         try:
             # Parse ISO format timestamp
             return datetime.fromisoformat(boot_timestamp)
@@ -985,10 +987,10 @@ class ComputhermUptimeSensor(ComputhermSensorBase, SensorEntity):
         """Return additional state attributes with uptime breakdown."""
         system_data = self.device_data.get("system", {})
         uptime_data = system_data.get("uptime")
-        
+
         if not uptime_data:
             return None
-        
+
         return {
             "days": uptime_data.get("days", 0),
             "hours": uptime_data.get("hours", 0),

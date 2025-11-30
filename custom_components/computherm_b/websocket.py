@@ -292,7 +292,7 @@ class WebSocketMessageHandler:
         if system_data:
             # Store the entire system data for access to firmware info, uptime, etc.
             device_update["system"] = system_data
-            
+
             # Calculate boot timestamp from uptime if available
             if "uptime" in system_data:
                 from datetime import datetime, timedelta, timezone
@@ -302,25 +302,25 @@ class WebSocketMessageHandler:
                     hours = uptime_data.get("hours", 0)
                     minutes = uptime_data.get("minutes", 0)
                     seconds = uptime_data.get("seconds", 0)
-                    
+
                     # Calculate total uptime in seconds
                     total_seconds = (days * 86400) + (hours * 3600) + (minutes * 60) + seconds
-                    
+
                     # Calculate boot time by subtracting uptime from current time
                     new_boot_time = datetime.now(timezone.utc) - timedelta(seconds=total_seconds)
-                    
+
                     # Only update boot_timestamp if it doesn't exist or differs significantly
                     # from the previous value (> 60 seconds difference indicates device reboot)
                     should_update = True
                     if coordinator and serial in coordinator.device_data:
                         existing_system = coordinator.device_data[serial].get("system", {})
                         existing_boot_timestamp = existing_system.get("boot_timestamp")
-                        
+
                         if existing_boot_timestamp:
                             try:
                                 existing_boot_time = datetime.fromisoformat(existing_boot_timestamp)
                                 time_diff = abs((new_boot_time - existing_boot_time).total_seconds())
-                                
+
                                 # Only update if difference is more than 60 seconds (device rebooted)
                                 if time_diff < 60:
                                     should_update = False
@@ -332,7 +332,7 @@ class WebSocketMessageHandler:
                                     )
                             except (ValueError, TypeError) as error:
                                 _LOGGER.debug("[%s] Failed to parse existing boot timestamp: %s", serial, error)
-                    
+
                     if should_update:
                         # Store new boot timestamp
                         device_update["system"]["boot_timestamp"] = new_boot_time.isoformat()
@@ -342,7 +342,7 @@ class WebSocketMessageHandler:
                         )
                 except (ValueError, TypeError, KeyError) as error:
                     _LOGGER.debug("[%s] Failed to calculate boot timestamp: %s", serial, error)
-            
+
             if "rssi" in system_data:
                 device_update[DA.RSSI] = system_data["rssi"]
             if "rssi_level" in system_data:
@@ -642,13 +642,13 @@ class WebSocketClient:
         scan_msg = WSC.MESSAGE_TEMPLATES["SCAN"].format(device_id=serial)
         _LOGGER.debug("[%s] Sending scan request", serial)
         await self.websocket.send(scan_msg)
-        
+
         # Only consume the response on initial scan during setup
         # Retry scans will be processed by the main message loop
         if initial_scan:
             await self.websocket.recv()
             _LOGGER.debug("[%s] Scan response received", serial)
-        
+
         # Initialize retry count for this device
         if serial not in self._scan_retry_count:
             self._scan_retry_count[serial] = 0
@@ -656,16 +656,16 @@ class WebSocketClient:
     async def _monitor_base_info_timeout(self) -> None:
         """Monitor devices that haven't received base_info and retry scan if needed."""
         await asyncio.sleep(self._base_info_timeout)
-        
+
         if self._stopping or not self.websocket:
             return
-        
+
         # Check which devices are missing base_info
         missing_base_info = set(self.device_serials) - self._devices_with_base_info
-        
+
         for serial in missing_base_info:
             retry_count = self._scan_retry_count.get(serial, 0)
-            
+
             if retry_count < self._max_scan_retries:
                 _LOGGER.warning(
                     "[%s] No base_info received after %.1f seconds (attempt %d/%d). Retrying scan...",
@@ -674,14 +674,14 @@ class WebSocketClient:
                     retry_count + 1,
                     self._max_scan_retries
                 )
-                
+
                 self._scan_retry_count[serial] = retry_count + 1
-                
+
                 try:
                     # Add exponential backoff between retries
                     backoff = 2 ** retry_count
                     await asyncio.sleep(backoff)
-                    
+
                     if self.websocket and not self._stopping:
                         await self._scan_device_with_retry(serial, initial_scan=False)
                         # Schedule another check after timeout
@@ -696,8 +696,7 @@ class WebSocketClient:
                 _LOGGER.error(
                     "[%s] Failed to receive base_info after %d attempts. Will try to synthesize base_info from available data.",
                     serial,
-                    self._max_scan_retries
-                )
+                    self._max_scan_retries)
                 # Trigger fallback base_info generation in coordinator
                 if self.coordinator:
                     self.data_callback({
@@ -758,7 +757,7 @@ class WebSocketClient:
 
             # Initialize last message time
             self._last_message_time = datetime.now()
-            
+
             # Start monitoring for devices that didn't receive base_info
             asyncio.create_task(self._monitor_base_info_timeout())
         except Exception as error:
