@@ -93,7 +93,8 @@ class WebSocketMessageHandler:
     def _process_readings(
             readings: List[Dict[str, Any]],
             serial: str,
-            device_update: Dict[str, Any]
+            device_update: Dict[str, Any],
+            coordinator=None
     ) -> None:
         """Process temperature and humidity readings and update device state."""
         # Initialize sensor_readings if not present
@@ -160,6 +161,46 @@ class WebSocketMessageHandler:
             elif reading["type"] == WSC.Events.TARGET_TEMPERATURE:
                 reading_value = None if reading["reading"] == "N/A" else reading["reading"]
                 device_update[DA.TARGET_TEMPERATURE] = reading_value
+
+        # Update current_temperature from the controlling sensor
+        # This ensures climate entity's current_temperature is updated with every reading update
+        # First, try to get controlling sensor info from the current update
+        controlling_src = device_update.get(DA.CONTROLLING_SRC)
+        sensor_id = device_update.get(DA.CONTROLLING_SENSOR)
+        
+        # If not in update, try to get it from coordinator's stored data
+        if not controlling_src and coordinator and serial in coordinator.device_data:
+            stored_data = coordinator.device_data[serial]
+            controlling_src = stored_data.get(DA.CONTROLLING_SRC)
+            sensor_id = stored_data.get(DA.CONTROLLING_SENSOR)
+            _LOGGER.debug(
+                "[%s] Using stored controlling sensor info: src=%s, sensor=%s",
+                serial,
+                controlling_src,
+                sensor_id
+            )
+        
+        if controlling_src and DA.SENSOR_READINGS in device_update:
+            # Build sensor key based on controlling_src
+            if controlling_src == "ONBOARD":
+                sensor_key = "ONBOARD_TEMPERATURE"
+            elif sensor_id is not None:
+                sensor_key = f"{controlling_src}_{sensor_id}"
+            else:
+                # Default to sensor 1 if no specific sensor ID is provided
+                sensor_key = f"{controlling_src}_1"
+
+            # Get the reading from the appropriate sensor
+            if sensor_key in device_update[DA.SENSOR_READINGS]:
+                sensor_data = device_update[DA.SENSOR_READINGS][sensor_key]
+                if "reading" in sensor_data:
+                    device_update[DA.CURRENT_TEMPERATURE] = sensor_data["reading"]
+                    _LOGGER.debug(
+                        "[%s] Updated current_temperature to %s from sensor %s in _process_readings",
+                        serial,
+                        sensor_data["reading"],
+                        sensor_key
+                    )
 
     @staticmethod
     def _process_relays(
@@ -230,7 +271,8 @@ class WebSocketMessageHandler:
             elif sensor_id is not None:
                 sensor_key = f"{controlling_src}_{sensor_id}"
             else:
-                sensor_key = controlling_src
+                # Default to sensor 1 if no specific sensor ID is provided
+                sensor_key = f"{controlling_src}_1"
 
             # Get the reading from the appropriate sensor
             if sensor_key in device_update[DA.SENSOR_READINGS]:
@@ -238,7 +280,7 @@ class WebSocketMessageHandler:
                 if "reading" in sensor_data:
                     device_update[DA.CURRENT_TEMPERATURE] = sensor_data["reading"]
                     _LOGGER.debug(
-                        "[%s] Set current_temperature to %s from sensor %s",
+                        "[%s] Set current_temperature to %s from sensor %s in _process_relays",
                         serial,
                         sensor_data["reading"],
                         sensor_key
@@ -285,7 +327,7 @@ class WebSocketMessageHandler:
 
         # Process readings first to populate sensor_readings
         if reading_array:
-            WebSocketMessageHandler._process_readings(reading_array, serial, device_update)
+            WebSocketMessageHandler._process_readings(reading_array, serial, device_update, coordinator)
 
         # Add device-level diagnostic data from system object (if available)
         # This is done AFTER processing readings to ensure system-level values take precedence
@@ -961,7 +1003,7 @@ class WebSocketClient:
         # Process readings and relays
         if "readings" in event_data:
             self._message_handler._process_readings(
-                event_data["readings"], serial, device_update)
+                event_data["readings"], serial, device_update, self.coordinator)
 
         if "relays" in event_data:
             self._message_handler._process_relays(

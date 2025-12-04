@@ -292,8 +292,9 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             # Handle state updates
             self._process_state_update(serial, device_data)
 
-            # Notify HA of the update
-            self.async_set_updated_data(self.device_data)
+            # Notify HA of the update with a NEW dict object to trigger coordinator listeners
+            # This ensures CoordinatorEntity instances (like climate) get notified of changes
+            self.async_set_updated_data({**self.device_data})
 
         except Exception as error:
             _LOGGER.error(
@@ -323,19 +324,31 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
     def _process_state_update(
             self, serial: str, device_data: Dict[str, Any]) -> None:
         """Process state update for a device."""
-        # Preserve existing function and mode if not provided in update
-        if device_data.get(
-                DA.FUNCTION) is None and self.device_data[serial].get(
-                DA.FUNCTION) is not None:
-            existing_function = self.device_data[serial][DA.FUNCTION]
-            self.device_data[serial].update(device_data)
-            self.device_data[serial][DA.FUNCTION] = existing_function
-        elif device_data.get(DA.MODE) is None and self.device_data[serial].get(DA.MODE) is not None:
-            existing_mode = self.device_data[serial][DA.MODE]
-            self.device_data[serial].update(device_data)
-            self.device_data[serial][DA.MODE] = existing_mode
-        else:
-            self.device_data[serial].update(device_data)
+        # Preserve existing values if not provided in update
+        preserved_keys = []
+        
+        # Preserve FUNCTION if not in update
+        if device_data.get(DA.FUNCTION) is None and self.device_data[serial].get(DA.FUNCTION) is not None:
+            preserved_keys.append((DA.FUNCTION, self.device_data[serial][DA.FUNCTION]))
+        
+        # Preserve MODE if not in update
+        if device_data.get(DA.MODE) is None and self.device_data[serial].get(DA.MODE) is not None:
+            preserved_keys.append((DA.MODE, self.device_data[serial][DA.MODE]))
+        
+        # Preserve CONTROLLING_SRC if not in update
+        if device_data.get(DA.CONTROLLING_SRC) is None and self.device_data[serial].get(DA.CONTROLLING_SRC) is not None:
+            preserved_keys.append((DA.CONTROLLING_SRC, self.device_data[serial][DA.CONTROLLING_SRC]))
+        
+        # Preserve CONTROLLING_SENSOR if not in update
+        if device_data.get(DA.CONTROLLING_SENSOR) is None and self.device_data[serial].get(DA.CONTROLLING_SENSOR) is not None:
+            preserved_keys.append((DA.CONTROLLING_SENSOR, self.device_data[serial][DA.CONTROLLING_SENSOR]))
+        
+        # Update device data
+        self.device_data[serial].update(device_data)
+        
+        # Restore preserved values
+        for key, value in preserved_keys:
+            self.device_data[serial][key] = value
 
     def _process_base_info_update(
             self, serial: str, device_data: Dict[str, Any]) -> None:
