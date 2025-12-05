@@ -105,20 +105,17 @@ class WebSocketMessageHandler:
             if "reading" not in reading:
                 continue
 
-            # Create unique sensor key based on src, id, and type
+            # Create unique sensor key based on src, sensor number, and type
             src = reading.get("src", "").upper()
-            sensor_id = reading.get("id")
+            sensor_num = reading.get("sensor", 1)
             reading_type = reading.get("type", "").upper()
 
             # For ONBOARD sensors, use src_type as key (e.g., ONBOARD_TEMPERATURE, ONBOARD_HUMIDITY)
-            # For RELAY/REMOTE sensors, use src_id combination
+            # For RELAY/REMOTE sensors, use src_sensornumber combination (e.g., RELAY_1, RELAY_2)
             if src == "ONBOARD":
                 sensor_key = f"{src}_{reading_type}"
-            elif sensor_id is not None:
-                sensor_key = f"{src}_{sensor_id}"
             else:
-                # Fallback: use src and sensor number
-                sensor_num = reading.get("sensor", 1)
+                # Use sensor number for RELAY and REMOTE sensors
                 sensor_key = f"{src}_{sensor_num}"
 
             # Initialize sensor entry if not exists
@@ -149,6 +146,16 @@ class WebSocketMessageHandler:
             if reading["type"] == WSC.Events.TEMPERATURE:
                 reading_value = None if reading["reading"] == "N/A" else reading["reading"]
                 device_update[DA.SENSOR_READINGS][sensor_key]["reading"] = reading_value
+
+                # Log each temperature sensor update with sensor name and value
+                sensor_name = reading.get("name", sensor_key)
+                _LOGGER.debug(
+                    "[%s] Sensor %s (%s) temperature updated: %s°C",
+                    serial,
+                    sensor_key,
+                    sensor_name,
+                    reading_value
+                )
 
                 # For backward compatibility, keep the first temperature reading in DA.TEMPERATURE
                 if DA.TEMPERATURE not in device_update:

@@ -107,6 +107,17 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         self.serial_number = serial
         self._setup_device_info()
 
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator.
+        
+        Only update if our device's data is in the update to avoid
+        unnecessary updates when other devices change.
+        """
+        # Only update if our device is in the coordinator data
+        if self.serial_number in self.coordinator.data:
+            super()._handle_coordinator_update()
+
     def _setup_device_info(self) -> None:
         """Set up device information and entity attributes."""
         # Get the API ID from devices dictionary
