@@ -326,26 +326,28 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         """Process state update for a device."""
         # Preserve existing values if not provided in update
         preserved_keys = []
-        
+
         # Preserve FUNCTION if not in update
         if device_data.get(DA.FUNCTION) is None and self.device_data[serial].get(DA.FUNCTION) is not None:
             preserved_keys.append((DA.FUNCTION, self.device_data[serial][DA.FUNCTION]))
-        
+
         # Preserve MODE if not in update
         if device_data.get(DA.MODE) is None and self.device_data[serial].get(DA.MODE) is not None:
             preserved_keys.append((DA.MODE, self.device_data[serial][DA.MODE]))
-        
+
         # Preserve CONTROLLING_SRC if not in update
         if device_data.get(DA.CONTROLLING_SRC) is None and self.device_data[serial].get(DA.CONTROLLING_SRC) is not None:
             preserved_keys.append((DA.CONTROLLING_SRC, self.device_data[serial][DA.CONTROLLING_SRC]))
-        
+
         # Preserve CONTROLLING_SENSOR if not in update
-        if device_data.get(DA.CONTROLLING_SENSOR) is None and self.device_data[serial].get(DA.CONTROLLING_SENSOR) is not None:
+        if device_data.get(
+                DA.CONTROLLING_SENSOR) is None and self.device_data[serial].get(
+                DA.CONTROLLING_SENSOR) is not None:
             preserved_keys.append((DA.CONTROLLING_SENSOR, self.device_data[serial][DA.CONTROLLING_SENSOR]))
-        
+
         # Update device data
         self.device_data[serial].update(device_data)
-        
+
         # Restore preserved values
         for key, value in preserved_keys:
             self.device_data[serial][key] = value
@@ -414,10 +416,11 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                         if sensor_key in updated_device_data[DA.SENSOR_READINGS]:
                             name = sensor_meta.get("name", "").strip()
                             if name:
-                                old_name = updated_device_data[DA.SENSOR_READINGS][sensor_key].get("name", "")
-                                updated_device_data[DA.SENSOR_READINGS][sensor_key]["name"] = name
-                                _LOGGER.debug("[%s] Updated sensor %s name from '%s' to '%s'",
-                                              serial, sensor_key, old_name, name)
+                                old_name = updated_device_data[DA.SENSOR_READINGS][sensor_key].get("name", "").strip()
+                                if old_name != name:
+                                    updated_device_data[DA.SENSOR_READINGS][sensor_key]["name"] = name
+                                    _LOGGER.debug("[%s] Updated sensor %s name from '%s' to '%s'",
+                                                  serial, sensor_key, old_name, name)
 
                 # Update the device_data with the new dict
                 self.device_data[serial] = updated_device_data
@@ -462,32 +465,42 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 system_data = wifi_data.get("system", {})
                 _LOGGER.debug("[%s] Extracted system data: %s", serial, system_data)
 
+                changed = False
+
                 # Create a new device data dict to ensure change detection works
-                _LOGGER.debug("[%s] Creating new device data dict", serial)
                 updated_device_data = {**self.device_data[serial]}
 
                 # Store the WiFi system info for sensors to access
-                _LOGGER.debug("[%s] Storing WiFi info", serial)
-                updated_device_data["wifi_info"] = system_data
-                _LOGGER.debug("[%s] WiFi info stored: %s", serial, system_data)
+                if system_data:
+                    _LOGGER.debug("[%s] Storing WiFi info", serial)
+                    updated_device_data["wifi_info"] = system_data
+                    _LOGGER.debug("[%s] WiFi info stored: %s", serial, system_data)
+                    changed = True
 
                 # Always update RSSI values from WiFi API (this is the authoritative source)
                 if "rssi" in system_data:
-                    _LOGGER.debug("[%s] Updating RSSI from WiFi data: %s (old: %s)", serial,
-                                  system_data["rssi"], updated_device_data.get(DA.RSSI))
-                    updated_device_data[DA.RSSI] = system_data["rssi"]
+                    old_rssi = self.device_data[serial].get(DA.RSSI)
+                    if old_rssi != system_data["rssi"]:
+                        _LOGGER.debug("[%s] Updating RSSI from WiFi data: %s (old: %s)", serial,
+                                      system_data["rssi"], old_rssi)
+                        updated_device_data[DA.RSSI] = system_data["rssi"]
+                        changed = True
 
                 if "rssi_level" in system_data:
-                    _LOGGER.debug("[%s] Updating RSSI_LEVEL from WiFi data: %s (old: %s)", serial,
-                                  system_data["rssi_level"], updated_device_data.get(DA.RSSI_LEVEL))
-                    updated_device_data[DA.RSSI_LEVEL] = system_data["rssi_level"]
+                    old_rssi_level = self.device_data[serial].get(DA.RSSI_LEVEL)
+                    if old_rssi_level != system_data["rssi_level"]:
+                        _LOGGER.debug("[%s] Updating RSSI_LEVEL from WiFi data: %s (old: %s)", serial,
+                                      system_data["rssi_level"], old_rssi_level)
+                        updated_device_data[DA.RSSI_LEVEL] = system_data["rssi_level"]
+                        changed = True
 
                 # Update the device_data with the new dict
                 self.device_data[serial] = updated_device_data
 
-                # Notify HA of the update with a new top-level dict
-                _LOGGER.debug("[%s] Notifying Home Assistant of WiFi data update", serial)
-                self.async_set_updated_data({**self.device_data})
+                # Notify HA of the update with a new top-level dict only if changed
+                if changed:
+                    _LOGGER.debug("[%s] Notifying Home Assistant of WiFi data update", serial)
+                    self.async_set_updated_data({**self.device_data})
                 _LOGGER.debug("[%s] WiFi state update completed successfully", serial)
 
         except ClientResponseError as error:

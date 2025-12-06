@@ -93,7 +93,6 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     _attr_translation_key = DOMAIN
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_icon = "mdi:thermostat"
-    _attr_hvac_modes = [HVACMode.HEAT, HVACMode.COOL, HVACMode.OFF, HVACMode.AUTO]
     _attr_supported_features = SUPPORT_FLAGS
     _attr_target_temperature_step = 0.1
 
@@ -110,7 +109,7 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator.
-        
+
         Only update if our device's data is in the update to avoid
         unnecessary updates when other devices change.
         """
@@ -176,6 +175,21 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         )
         self._attr_device_info = device_info
 
+    def _has_on_off_relay(self) -> bool:
+        """Check if device has an ON-OFF relay."""
+        relays = self.device_data.get("relays", {})
+        return any(relay.get("type") == "ON-OFF" for relay in relays.values())
+
+    @property
+    def hvac_modes(self) -> list[HVACMode]:
+        """Return the list of available operation modes."""
+        modes = [HVACMode.OFF, HVACMode.AUTO]
+        if self._has_on_off_relay():
+            modes.append(HVACMode.FAN_ONLY)
+        else:
+            modes.extend([HVACMode.HEAT, HVACMode.COOL])
+        return modes
+
     @property
     def device_data(self) -> dict:
         """Get the current device data."""
@@ -205,6 +219,12 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
         if not self.device_data.get(DA.ONLINE, False):
             return HVACMode.OFF
 
+        if self._has_on_off_relay():
+            if self.device_data.get(DA.MODE) == "off":
+                return HVACMode.OFF
+            relay_state = self.device_data.get(DA.RELAY_STATE, False)
+            return HVACMode.FAN_ONLY if relay_state else HVACMode.AUTO
+
         mode = self.device_data.get(DA.MODE)
 
         # If mode is SCHEDULE, return AUTO
@@ -233,28 +253,23 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     def _is_device_active(self) -> bool:
         """Check if the device is active and operational."""
         if not self.device_data.get(DA.ONLINE, False):
-            _LOGGER.debug(
-                "[%s] Device is offline, setting action to OFF",
-                self.serial_number)
             return False
         if self.hvac_mode == HVACMode.OFF:
-            _LOGGER.debug(
-                "[%s] Device mode is OFF, setting action to OFF",
-                self.serial_number)
             return False
         return True
 
     def _determine_hvac_action(
             self,
-            function: str,
+            function: str | None,
             relay_state: bool) -> HVACAction:
         """Determine the current HVAC action based on function and relay state."""
-        if function == "cooling":
-            action = HVACAction.COOLING if relay_state else HVACAction.IDLE
-            return action
+        if self._has_on_off_relay():
+            return HVACAction.FAN if relay_state else HVACAction.IDLE
 
-        action = HVACAction.HEATING if relay_state else HVACAction.IDLE
-        return action
+        if function == "cooling":
+            return HVACAction.COOLING if relay_state else HVACAction.IDLE
+
+        return HVACAction.HEATING if relay_state else HVACAction.IDLE
 
     @property
     def available(self) -> bool:
@@ -343,6 +358,11 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
     def _get_operation_mode(
             self, hvac_mode: HVACMode) -> Optional[tuple[str, str]]:
         """Get operation mode parameters based on HVAC mode."""
+        if hvac_mode == HVACMode.FAN_ONLY:
+            if self._has_on_off_relay():
+                return ("mode", "MANUAL")
+            return None
+
         mode_map = {
             HVACMode.OFF: ("mode", "OFF"),
             HVACMode.AUTO: ("mode", "SCHEDULE"),

@@ -8,7 +8,7 @@ Home Assistant integration for Computherm B Series WiFi thermostats. It provides
 ## Features
 
 ### Climate Control (Thermostat)
-- **HVAC Modes**: Heat, Cool, Auto (Schedule), and Off
+- **HVAC Modes**: Heat, Cool, Auto (Schedule), Fan Only (for ON/OFF relay devices), and Off
 - **Precise Temperature Control**: Set target temperature with 0.1°C precision
 - **Current Temperature & Humidity**: Real-time monitoring of room conditions
 - **HVAC Action Indication**: Know when your device is actively heating, cooling, or idle

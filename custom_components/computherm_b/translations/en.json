@@ -4,7 +4,7 @@
             "mode": {
                 "name": "Mode",
                 "state": {
-                    "schedule": "Schedule",
+                    "schedule": "Auto (scheduled)",
                     "manual": "Manual",
                     "off": "Off"
                 }

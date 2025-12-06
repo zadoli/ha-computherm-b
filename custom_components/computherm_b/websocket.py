@@ -174,7 +174,7 @@ class WebSocketMessageHandler:
         # First, try to get controlling sensor info from the current update
         controlling_src = device_update.get(DA.CONTROLLING_SRC)
         sensor_id = device_update.get(DA.CONTROLLING_SENSOR)
-        
+
         # If not in update, try to get it from coordinator's stored data
         if not controlling_src and coordinator and serial in coordinator.device_data:
             stored_data = coordinator.device_data[serial]
@@ -186,7 +186,7 @@ class WebSocketMessageHandler:
                 controlling_src,
                 sensor_id
             )
-        
+
         if controlling_src and DA.SENSOR_READINGS in device_update:
             # Build sensor key based on controlling_src
             if controlling_src == "ONBOARD":
@@ -1007,14 +1007,14 @@ class WebSocketClient:
                 DA.ONLINE: event_data.get(DA.ONLINE, False)
             }
 
-        # Process readings and relays
-        if "readings" in event_data:
-            self._message_handler._process_readings(
-                event_data["readings"], serial, device_update, self.coordinator)
+            # Process readings and relays
+            if "readings" in event_data:
+                self._message_handler._process_readings(
+                    event_data["readings"], serial, device_update, self.coordinator)
 
-        if "relays" in event_data:
-            self._message_handler._process_relays(
-                event_data["relays"], serial, device_update)
+            if "relays" in event_data:
+                self._message_handler._process_relays(
+                    event_data["relays"], serial, device_update)
 
         # Notify callback with the update
         self.data_callback({serial: device_update})
