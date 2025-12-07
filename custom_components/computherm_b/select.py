@@ -54,14 +54,20 @@ async def async_setup_entry(
             entities_to_add.append(mode_entity)
             existing_mode_entities.add(device_id)
 
-        # Add function select if not already added
+        # Add function select if not already added and device is not ON-OFF type
         if device_id not in existing_function_entities:
-            _LOGGER.info(
-                "[%s] Creating function select entity",
-                device_id)
-            function_entity = ComputhermFunctionSelect(coordinator, device_id)
-            entities_to_add.append(function_entity)
-            existing_function_entities.add(device_id)
+            if _has_on_off_relay(coordinator, device_id):
+                _LOGGER.info(
+                    "[%s] Skipping function select entity creation for ON-OFF device",
+                    device_id)
+                existing_function_entities.add(device_id)
+            else:
+                _LOGGER.info(
+                    "[%s] Creating function select entity",
+                    device_id)
+                function_entity = ComputhermFunctionSelect(coordinator, device_id)
+                entities_to_add.append(function_entity)
+                existing_function_entities.add(device_id)
 
         if entities_to_add:
             async_add_entities(entities_to_add, True)
@@ -95,6 +101,15 @@ def _is_device_ready(
         return False
 
     return True
+
+
+def _has_on_off_relay(
+        coordinator: ComputhermDataUpdateCoordinator,
+        device_id: str) -> bool:
+    """Check if device has an ON-OFF relay."""
+    device_data = coordinator.device_data.get(device_id, {})
+    relays = device_data.get("relays", {})
+    return any(relay.get("type") == "ON-OFF" for relay in relays.values())
 
 
 @callback

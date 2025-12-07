@@ -220,10 +220,13 @@ class ComputhermThermostat(CoordinatorEntity, ClimateEntity):
             return HVACMode.OFF
 
         if self._has_on_off_relay():
-            if self.device_data.get(DA.MODE) == "off":
+            mode = self.device_data.get(DA.MODE)
+            if mode == "off":
                 return HVACMode.OFF
-            relay_state = self.device_data.get(DA.RELAY_STATE, False)
-            return HVACMode.FAN_ONLY if relay_state else HVACMode.AUTO
+            elif mode == "schedule":
+                return HVACMode.AUTO
+            else:  # mode == "manual" or missing
+                return HVACMode.FAN_ONLY
 
         mode = self.device_data.get(DA.MODE)
 

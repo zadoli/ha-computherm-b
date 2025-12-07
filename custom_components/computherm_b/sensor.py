@@ -241,8 +241,10 @@ def _add_diagnostic_sensors(
         entities_to_add.append(ComputhermRSSILevelSensor(coordinator, device_id))
         existing_entities["rssi_level"].add(device_id)
 
-    # Add device-level source sensor if available
-    if DA.SOURCE in device_data and device_id not in existing_entities["source"]:
+    # Add device-level source sensor if available and device has controlling_src
+    if (DA.SOURCE in device_data
+        and device_data.get(DA.CONTROLLING_SRC) is not None
+            and device_id not in existing_entities["source"]):
         _LOGGER.info("[%s] Creating source sensor", device_id)
         entities_to_add.append(ComputhermSourceSensor(coordinator, device_id))
         existing_entities["source"].add(device_id)
