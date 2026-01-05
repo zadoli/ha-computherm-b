@@ -473,10 +473,50 @@ class ComputhermTemperatureSensor(ComputhermNumericSensorBase):
         # Multi-sensor case
         if self.sensor_key:
             sensor_readings = self.device_data.get(DA.SENSOR_READINGS, {})
+
+            # DEBUG LOG: Show what we have in sensor_readings
+            _LOGGER.debug(
+                "[%s] Getting temperature for sensor_key=%s, sensor_readings keys=%s",
+                self.device_id,
+                self.sensor_key,
+                list(sensor_readings.keys()) if sensor_readings else "None"
+            )
+
             if self.sensor_key in sensor_readings:
-                reading = sensor_readings[self.sensor_key].get("reading")
+                sensor_data = sensor_readings[self.sensor_key]
+                reading = sensor_data.get("reading")
+
+                # DEBUG LOG: Show sensor data
+                _LOGGER.debug(
+                    "[%s] Sensor %s data: reading=%s, name=%s, full_data=%s",
+                    self.device_id,
+                    self.sensor_key,
+                    reading,
+                    sensor_data.get("name", "NO_NAME"),
+                    sensor_data
+                )
+
                 if reading is not None:
+                    _LOGGER.debug(
+                        "[%s] Returning temperature %.2f for sensor %s",
+                        self.device_id,
+                        float(reading),
+                        self.sensor_key
+                    )
                     return float(reading)
+
+                _LOGGER.warning(
+                    "[%s] Sensor %s has no reading!",
+                    self.device_id,
+                    self.sensor_key
+                )
+                return None
+            else:
+                _LOGGER.warning(
+                    "[%s] Sensor key %s NOT FOUND in sensor_readings!",
+                    self.device_id,
+                    self.sensor_key
+                )
                 return None
 
         # Fallback to old behavior for backward compatibility

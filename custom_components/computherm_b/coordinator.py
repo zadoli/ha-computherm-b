@@ -345,8 +345,28 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                 DA.CONTROLLING_SENSOR) is not None:
             preserved_keys.append((DA.CONTROLLING_SENSOR, self.device_data[serial][DA.CONTROLLING_SENSOR]))
 
-        # Update device data
-        self.device_data[serial].update(device_data)
+        # Special handling for SENSOR_READINGS - deep merge instead of shallow replace
+        if DA.SENSOR_READINGS in device_data:
+            # Ensure sensor_readings exists in device_data
+            if DA.SENSOR_READINGS not in self.device_data[serial]:
+                self.device_data[serial][DA.SENSOR_READINGS] = {}
+
+            # Deep merge each sensor's data
+            for sensor_key, sensor_data in device_data[DA.SENSOR_READINGS].items():
+                if sensor_key not in self.device_data[serial][DA.SENSOR_READINGS]:
+                    # New sensor - create it
+                    self.device_data[serial][DA.SENSOR_READINGS][sensor_key] = {}
+
+                # Update this sensor's data (preserving existing fields)
+                self.device_data[serial][DA.SENSOR_READINGS][sensor_key].update(sensor_data)
+
+            # Create a copy of device_data without SENSOR_READINGS to prevent shallow update
+            device_data_copy = {k: v for k, v in device_data.items() if k != DA.SENSOR_READINGS}
+        else:
+            device_data_copy = device_data
+
+        # Update device data with remaining fields
+        self.device_data[serial].update(device_data_copy)
 
         # Restore preserved values
         for key, value in preserved_keys:
@@ -400,27 +420,38 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
                     for sensor_meta in sensors_data:
                         # Build sensor key to match sensor_readings structure
                         src = sensor_meta.get("src", "").upper()
-                        sensor_id = sensor_meta.get("id")
                         sensor_type = sensor_meta.get("type", "").upper()
 
                         # For ONBOARD sensors, use src_type as key
+                        # For RELAY/REMOTE sensors, use sensor number (NOT id, which is reading ID)
                         if src == "ONBOARD":
                             sensor_key = f"{src}_{sensor_type}"
-                        elif sensor_id is not None:
-                            sensor_key = f"{src}_{sensor_id}"
                         else:
+                            # Always use sensor number for RELAY/REMOTE sensors
                             sensor_num = sensor_meta.get("sensor", 1)
                             sensor_key = f"{src}_{sensor_num}"
 
+                        name = sensor_meta.get("name", "").strip()
+
                         # Update the name if this sensor exists in sensor_readings
                         if sensor_key in updated_device_data[DA.SENSOR_READINGS]:
-                            name = sensor_meta.get("name", "").strip()
                             if name:
                                 old_name = updated_device_data[DA.SENSOR_READINGS][sensor_key].get("name", "").strip()
                                 if old_name != name:
                                     updated_device_data[DA.SENSOR_READINGS][sensor_key]["name"] = name
                                     _LOGGER.debug("[%s] Updated sensor %s name from '%s' to '%s'",
                                                   serial, sensor_key, old_name, name)
+                        else:
+                            # Sensor doesn't exist yet - create it from metadata
+                            if name:
+                                updated_device_data[DA.SENSOR_READINGS][sensor_key] = {
+                                    "src": src.lower(),
+                                    "type": sensor_meta.get("type"),
+                                    "name": name,
+                                    "reading": None  # No reading yet, will be updated when data arrives
+                                }
+                                _LOGGER.debug("[%s] Added new sensor %s from metadata: '%s'",
+                                              serial, sensor_key, name)
 
                 # Update the device_data with the new dict
                 self.device_data[serial] = updated_device_data

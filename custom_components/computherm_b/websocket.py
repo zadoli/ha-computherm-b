@@ -122,12 +122,19 @@ class WebSocketMessageHandler:
             if sensor_key not in device_update[DA.SENSOR_READINGS]:
                 device_update[DA.SENSOR_READINGS][sensor_key] = {}
 
-            # Store sensor metadata
-            device_update[DA.SENSOR_READINGS][sensor_key].update({
+            # Store sensor metadata - only update fields that are present
+            sensor_metadata = {
                 "src": src.lower(),
-                "name": reading.get("name", ""),
                 "type": reading.get("type"),
-            })
+            }
+
+            # Only update name if it's present in the reading AND not empty
+            if "name" in reading:
+                name = reading.get("name", "").strip()
+                if name:  # Only update if name is not empty
+                    sensor_metadata["name"] = name
+
+            device_update[DA.SENSOR_READINGS][sensor_key].update(sensor_metadata)
 
             # Add common sensor attributes if present
             for attr in ["battery", "rssi", "rssi_level"]:
@@ -519,11 +526,13 @@ class WebSocketClient:
                 # Calculate time since last message
                 time_since_last_message = (
                     datetime.now() - self._last_message_time).total_seconds()
-                ping_timeout = self._ping_interval * 1.2  # Add 20% to the ping interval
+                ping_timeout = self._ping_interval * 1.5  # Increased from 1.2 to 1.5 for more tolerance
 
-                # _LOGGER.debug(
-                #     "Watchdog checking connection status... (last message time: %.1f)",
-                #     time_since_last_message)
+                # Log periodic status for debugging
+                _LOGGER.debug(
+                    "Watchdog: Connection alive. %.1f sec since last message (timeout: %.1f sec)",
+                    time_since_last_message,
+                    ping_timeout)
 
                 # If we've exceeded the timeout, force a reconnection
                 if time_since_last_message > ping_timeout:
@@ -541,10 +550,10 @@ class WebSocketClient:
                         except Exception as error:
                             _LOGGER.debug("Error closing stale websocket: %s", error)
 
-            # Check every 5 seconds (or half the ping interval if available)
-            check_interval = 5.0
+            # Check every 10 seconds (increased from 5 for less aggressive monitoring)
+            check_interval = 10.0
             if self._ping_interval is not None:
-                check_interval = min(self._ping_interval / 2, 5.0)
+                check_interval = min(self._ping_interval / 2, 10.0)
 
             await asyncio.sleep(check_interval)
 
@@ -764,6 +773,10 @@ class WebSocketClient:
             login_response = await self.websocket.recv()
             _LOGGER.debug("WebSocket: Login response received")
 
+            # Initialize last message time immediately after successful login
+            # This prevents watchdog from detecting stale connection during setup
+            self._last_message_time = datetime.now()
+
             # Check for authentication errors in the login response
             if "error" in login_response or "exception" in login_response:
                 _LOGGER.error("Authentication failed: %s", login_response)
@@ -804,9 +817,6 @@ class WebSocketClient:
             for serial in self.device_serials:
                 await self._scan_device_with_retry(serial)
 
-            # Initialize last message time
-            self._last_message_time = datetime.now()
-
             # Start monitoring for devices that didn't receive base_info
             asyncio.create_task(self._monitor_base_info_timeout())
         except Exception as error:
@@ -826,11 +836,11 @@ class WebSocketClient:
             if self._last_message_time is not None and self._ping_interval is not None:
                 time_since_last_message = (
                     datetime.now() - self._last_message_time).total_seconds()
-                ping_timeout = self._ping_interval * 1.2  # Add 20% to the ping interval
+                ping_timeout = self._ping_interval * 1.5  # Increased from 1.2 to 1.5 for more tolerance
 
                 if time_since_last_message > ping_timeout:
-                    _LOGGER.info(
-                        "Server ping timeout: %.1f sec since last ping (timeout: %.1f seconds). Reconnecting...",
+                    _LOGGER.warning(
+                        "Server ping timeout in message loop: %.1f sec since last ping (timeout: %.1f seconds). Reconnecting...",
                         time_since_last_message,
                         ping_timeout)
                     if self.websocket:
@@ -856,7 +866,7 @@ class WebSocketClient:
                 if self._last_message_time is not None and self._ping_interval is not None:
                     time_since_last_message = (
                         datetime.now() - self._last_message_time).total_seconds()
-                    ping_timeout = self._ping_interval * 1.2
+                    ping_timeout = self._ping_interval * 1.5  # Increased tolerance
 
                     if time_since_last_message > ping_timeout:
                         _LOGGER.warning(
