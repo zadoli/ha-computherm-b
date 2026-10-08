@@ -20,7 +20,7 @@ jobs:
       PROJECT_ROOT_DIR: "${{ github.workspace }}/custom_components/computherm_b"
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set release version number in files
         shell: bash
@@ -42,11 +42,11 @@ jobs:
           zip computherm_b.zip -r ./
 
       - name: 🔏 Sign release package
-        uses: sigstore/gh-action-sigstore-python@v3.0.0
+        uses: sigstore/gh-action-sigstore-python@v3.5.0
         with:
           inputs: "${{ env.PROJECT_ROOT_DIR }}/computherm_b.zip"
 
       - name: "Upload the ZIP file to the release"
-        uses: softprops/action-gh-release@v2.2.1
+        uses: softprops/action-gh-release@v3.0.3
         with:
           files: ${{ env.PROJECT_ROOT_DIR }}/computherm_b.zip
