@@ -1,0 +1,1683 @@
+{
+ "openapi": "3.0.0",
+ "paths": {
+  "/api/auth/login": {
+   "post": {
+    "operationId": "AuthController_login",
+    "parameters": [],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PostLogin"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Auth"
+    ]
+   }
+  },
+  "/api/auth/refresh": {
+   "post": {
+    "operationId": "AuthController_refresh",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Auth"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/auth/register": {
+   "post": {
+    "operationId": "AuthController_register",
+    "parameters": [],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PostRegister"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Auth"
+    ]
+   }
+  },
+  "/api/auth/logout": {
+   "get": {
+    "operationId": "AuthController_deleteCookies",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Auth"
+    ]
+   }
+  },
+  "/api/users": {
+   "delete": {
+    "operationId": "UsersController_deleteUser",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Users"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/users/me": {
+   "get": {
+    "operationId": "UsersController_getLoggedUser",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Users"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/users/verify-email": {
+   "get": {
+    "operationId": "UsersController_verifyAndSendEmail",
+    "parameters": [
+     {
+      "name": "light",
+      "required": false,
+      "in": "query",
+      "description": "Compatible with \"scan\" command only",
+      "schema": {
+       "type": "boolean"
+      }
+     },
+     {
+      "name": "async",
+      "required": false,
+      "in": "query",
+      "description": "Compatible with \"scan\" command only",
+      "schema": {
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Users"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "UsersController_verifyEmail",
+    "parameters": [],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/VerifyEmailBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Users"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/users/forgot-password": {
+   "post": {
+    "operationId": "UsersController_sendResetPasswordUrl",
+    "parameters": [],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ForgotPasswordBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Users"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/users/reset-password": {
+   "post": {
+    "operationId": "UsersController_resetPassword",
+    "parameters": [],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ResetPasswordBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Users"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices": {
+   "get": {
+    "operationId": "DevicesController_getUserDevices",
+    "parameters": [
+     {
+      "name": "light",
+      "required": false,
+      "in": "query",
+      "description": "Compatible with \"scan\" command only",
+      "schema": {
+       "type": "boolean"
+      }
+     },
+     {
+      "name": "async",
+      "required": false,
+      "in": "query",
+      "description": "Compatible with \"scan\" command only",
+      "schema": {
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/ordered": {
+   "get": {
+    "operationId": "DevicesController_getUserDevicesOrdered",
+    "parameters": [
+     {
+      "name": "light",
+      "required": false,
+      "in": "query",
+      "description": "Compatible with \"scan\" command only",
+      "schema": {
+       "type": "boolean"
+      }
+     },
+     {
+      "name": "async",
+      "required": false,
+      "in": "query",
+      "description": "Compatible with \"scan\" command only",
+      "schema": {
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/shares": {
+   "get": {
+    "operationId": "DevicesController_getDevicesWithSharing",
+    "parameters": [],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/assign": {
+   "post": {
+    "operationId": "DevicesController_assignDevice",
+    "parameters": [],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AssignDeviceBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/{deviceId}/unassign": {
+   "post": {
+    "operationId": "DevicesController_unassignDevice",
+    "parameters": [
+     {
+      "name": "deviceId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     }
+    ],
+    "responses": {
+     "201": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/{deviceId}/sensors": {
+   "get": {
+    "operationId": "DevicesController_getDeviceConfigs",
+    "parameters": [
+     {
+      "name": "deviceId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/{deviceId}/cmd/{command}": {
+   "get": {
+    "operationId": "DevicesController_getMqttRunCommandById",
+    "parameters": [
+     {
+      "name": "light",
+      "required": false,
+      "in": "query",
+      "description": "Compatible with \"scan\" command only",
+      "schema": {
+       "type": "boolean"
+      }
+     },
+     {
+      "name": "async",
+      "required": false,
+      "in": "query",
+      "description": "Compatible with \"scan\" command only",
+      "schema": {
+       "type": "boolean"
+      }
+     },
+     {
+      "name": "deviceId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     },
+     {
+      "name": "command",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "enum": [
+        "scan",
+        "restart",
+        "firmware",
+        "firmware-update",
+        "relays",
+        "ping",
+        "schedule",
+        "garage-run-action",
+        "garage-run-boost",
+        "garage-state",
+        "garage-config",
+        "schedule-names",
+        "wifi-state"
+       ],
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/sn/{serialNumber}/cmd/{command}": {
+   "get": {
+    "operationId": "DevicesController_getMqttRunCommandBySerialNumber",
+    "parameters": [
+     {
+      "name": "light",
+      "required": false,
+      "in": "query",
+      "description": "Compatible with \"scan\" command only",
+      "schema": {
+       "type": "boolean"
+      }
+     },
+     {
+      "name": "async",
+      "required": false,
+      "in": "query",
+      "description": "Compatible with \"scan\" command only",
+      "schema": {
+       "type": "boolean"
+      }
+     },
+     {
+      "name": "serialNumber",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "string"
+      }
+     },
+     {
+      "name": "command",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "enum": [
+        "scan",
+        "restart",
+        "firmware",
+        "firmware-update",
+        "relays",
+        "ping",
+        "schedule",
+        "garage-run-action",
+        "garage-run-boost",
+        "garage-state",
+        "garage-config",
+        "schedule-names",
+        "wifi-state"
+       ],
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/{deviceId}/cmd": {
+   "post": {
+    "operationId": "DevicesController_postMqttRunCommandById",
+    "parameters": [
+     {
+      "name": "deviceId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DevicesCommandsBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/sn/{serialNumber}/cmd": {
+   "post": {
+    "operationId": "DevicesController_postMqttRunCommandBySerialNumber",
+    "parameters": [
+     {
+      "name": "serialNumber",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DevicesCommandsBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/{deviceId}/schedule": {
+   "get": {
+    "operationId": "DevicesController_getDeviceSchedule",
+    "parameters": [
+     {
+      "name": "deviceId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     },
+     {
+      "name": "relay",
+      "required": false,
+      "in": "query",
+      "example": 1,
+      "schema": {
+       "minimum": 1,
+       "maximum": 4,
+       "type": "number"
+      }
+     },
+     {
+      "name": "schedule_number",
+      "required": false,
+      "in": "query",
+      "example": 1,
+      "schema": {
+       "minimum": 1,
+       "maximum": 4,
+       "type": "number"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "DevicesController_addDeviceSchedule",
+    "parameters": [
+     {
+      "name": "deviceId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DeviceScheduleBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/{deviceId}/measurements": {
+   "post": {
+    "operationId": "DevicesController_getDeviceMeasurementsById",
+    "parameters": [
+     {
+      "name": "deviceId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DeviceMeasurementsBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/sn/{serialNumber}/measurements": {
+   "post": {
+    "operationId": "DevicesController_getDeviceMeasurementsBySerialNumber",
+    "parameters": [
+     {
+      "name": "serialNumber",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DeviceMeasurementsBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/{deviceId}/measurements/export": {
+   "post": {
+    "operationId": "DevicesController_sendDeviceMeasurementsReportEmailById",
+    "parameters": [
+     {
+      "name": "deviceId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DeviceMeasurementsBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/sn/{serialNumber}/measurements/export": {
+   "post": {
+    "operationId": "DevicesController_sendDeviceMeasurementsReportEmailBySerialNumber",
+    "parameters": [
+     {
+      "name": "serialNumber",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "string"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DeviceMeasurementsBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/{deviceId}/sharing": {
+   "get": {
+    "operationId": "DevicesController_getDeviceSharing",
+    "parameters": [
+     {
+      "name": "deviceId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   },
+   "post": {
+    "operationId": "DevicesController_addDeviceSharing",
+    "parameters": [
+     {
+      "name": "deviceId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DeviceSharingBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/{deviceId}/sharing/{sharingId}": {
+   "delete": {
+    "operationId": "DevicesController_deleteDeviceSharing",
+    "parameters": [
+     {
+      "name": "deviceId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     },
+     {
+      "name": "sharingId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/devices/ordering": {
+   "post": {
+    "operationId": "DevicesController_postDeviceOrder",
+    "parameters": [],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "type": "array",
+        "items": {
+         "type": "string"
+        }
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Devices"
+    ],
+    "security": [
+     {
+      "bearer": []
+     }
+    ]
+   }
+  },
+  "/api/logs/gate/{deviceId}": {
+   "get": {
+    "operationId": "DeviceLogsController_getPSGateLogsByDeviceId",
+    "parameters": [
+     {
+      "name": "page",
+      "required": false,
+      "in": "query",
+      "schema": {
+       "type": "number"
+      }
+     },
+     {
+      "name": "limit",
+      "required": false,
+      "in": "query",
+      "schema": {
+       "type": "number"
+      }
+     },
+     {
+      "name": "relay",
+      "required": false,
+      "in": "query",
+      "schema": {
+       "type": "number"
+      }
+     },
+     {
+      "name": "deviceId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Logs"
+    ]
+   }
+  },
+  "/api/logs/devices/{deviceId}": {
+   "get": {
+    "operationId": "DeviceLogsController_getAllLogsByDeviceId",
+    "parameters": [
+     {
+      "name": "page",
+      "required": false,
+      "in": "query",
+      "schema": {
+       "type": "number"
+      }
+     },
+     {
+      "name": "limit",
+      "required": false,
+      "in": "query",
+      "schema": {
+       "type": "number"
+      }
+     },
+     {
+      "name": "relay",
+      "required": false,
+      "in": "query",
+      "schema": {
+       "type": "number"
+      }
+     },
+     {
+      "name": "deviceId",
+      "required": true,
+      "in": "path",
+      "schema": {
+       "type": "number"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": ""
+     }
+    },
+    "tags": [
+     "Logs"
+    ]
+   }
+  }
+ },
+ "info": {
+  "title": "proSmart API",
+  "description": "",
+  "version": "3.1.1",
+  "contact": {}
+ },
+ "tags": [],
+ "servers": [],
+ "components": {
+  "securitySchemes": {
+   "bearer": {
+    "scheme": "bearer",
+    "bearerFormat": "JWT",
+    "type": "http"
+   }
+  },
+  "schemas": {
+   "PostLogin": {
+    "type": "object",
+    "properties": {
+     "email": {
+      "type": "string"
+     },
+     "password": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "email",
+     "password"
+    ]
+   },
+   "PostRegister": {
+    "type": "object",
+    "properties": {
+     "email": {
+      "type": "string"
+     },
+     "name": {
+      "type": "string"
+     },
+     "password": {
+      "type": "string"
+     },
+     "phone": {
+      "type": "string"
+     },
+     "brand": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "email",
+     "name",
+     "password",
+     "phone",
+     "brand"
+    ]
+   },
+   "VerifyEmailBody": {
+    "type": "object",
+    "properties": {
+     "token": {
+      "type": "string"
+     },
+     "action": {
+      "type": "string",
+      "enum": [
+       "register",
+       "update"
+      ]
+     }
+    },
+    "required": [
+     "token",
+     "action"
+    ]
+   },
+   "ForgotPasswordBody": {
+    "type": "object",
+    "properties": {
+     "email": {
+      "type": "string",
+      "example": "example@email.com"
+     }
+    },
+    "required": [
+     "email"
+    ]
+   },
+   "ResetPasswordBody": {
+    "type": "object",
+    "properties": {
+     "token": {
+      "type": "string"
+     },
+     "password": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "token",
+     "password"
+    ]
+   },
+   "AssignDeviceBody": {
+    "type": "object",
+    "properties": {
+     "serial_number": {
+      "type": "string",
+      "example": "A1B2C3D4E5"
+     }
+    },
+    "required": [
+     "serial_number"
+    ]
+   },
+   "DevicesCommandsBody": {
+    "type": "object",
+    "properties": {
+     "relay": {
+      "type": "number",
+      "default": 1,
+      "minimum": 0,
+      "maximum": 4
+     },
+     "mode": {
+      "type": "string",
+      "enum": [
+       "OFF",
+       "MANUAL",
+       "SCHEDULE"
+      ],
+      "example": "MANUAL"
+     },
+     "function": {
+      "type": "string",
+      "enum": [
+       "HEATING",
+       "COOLING",
+       "HUMIDIFYING",
+       "DRYING"
+      ],
+      "example": "HEATING"
+     },
+     "type": {
+      "type": "string",
+      "enum": [
+       "THERMOSTAT",
+       "HUMIDISTAT",
+       "ON-OFF",
+       "GARAGE",
+       "CIRCUIT",
+       "DIFFERENTIAL"
+      ],
+      "example": "GARAGE"
+     },
+     "relay_name": {
+      "type": "string",
+      "example": "Relay 1"
+     },
+     "pulse": {
+      "type": "boolean",
+      "description": "Allowed only for GARAGE type"
+     },
+     "run_action": {
+      "type": "boolean",
+      "description": "Allowed only for GARAGE v2"
+     },
+     "pulse_time": {
+      "type": "number",
+      "example": 500,
+      "description": "Relay pulse time (milliseconds)",
+      "minimum": 0,
+      "maximum": 4000
+     },
+     "manual_set_point": {
+      "type": "number",
+      "example": 55.5
+     },
+     "boost_set_point": {
+      "type": "number",
+      "example": 66.5
+     },
+     "boost_time": {
+      "type": "number",
+      "example": 1800,
+      "description": "In seconds",
+      "minimum": 0,
+      "maximum": 5400
+     },
+     "boost_static_time": {
+      "type": "number",
+      "example": 60,
+      "description": "In seconds",
+      "minimum": 60,
+      "maximum": 5400
+     },
+     "time_zone": {
+      "type": "string",
+      "example": "Europe/Amsterdam"
+     },
+     "device_name": {
+      "type": "string",
+      "example": "My Device"
+     },
+     "hysteresis_low": {
+      "type": "number",
+      "example": 30,
+      "minimum": 0,
+      "maximum": 20
+     },
+     "hysteresis_high": {
+      "type": "number",
+      "example": 20,
+      "minimum": 0,
+      "maximum": 20
+     },
+     "controlling_id": {
+      "type": "number",
+      "example": 1,
+      "minimum": 0,
+      "maximum": 4
+     },
+     "controlling_source": {
+      "type": "string",
+      "enum": [
+       "ONBOARD",
+       "RELAY",
+       "REMOTE"
+      ],
+      "example": "REMOTE"
+     },
+     "controlling_sensor": {
+      "type": "number",
+      "example": 1,
+      "minimum": 1,
+      "maximum": 4
+     },
+     "controlling_critical": {
+      "type": "number",
+      "example": 85
+     },
+     "controlling_id_2": {
+      "type": "number",
+      "example": 1,
+      "minimum": 0,
+      "maximum": 4
+     },
+     "controlling_source_2": {
+      "type": "string",
+      "enum": [
+       "ONBOARD",
+       "RELAY",
+       "REMOTE"
+      ],
+      "example": "REMOTE"
+     },
+     "controlling_type_2": {
+      "type": "string",
+      "enum": [
+       "TEMPERATURE",
+       "HUMIDITY",
+       "HALL",
+       "LDR"
+      ],
+      "default": "HUMIDITY"
+     },
+     "controlling_sensor_2": {
+      "type": "number",
+      "example": 1,
+      "minimum": 1,
+      "maximum": 4
+     },
+     "controlling_critical_2": {
+      "type": "number",
+      "example": 85
+     },
+     "manual_set_point_2": {
+      "type": "number",
+      "example": 55.5
+     },
+     "input_calibration": {
+      "type": "number",
+      "example": 10,
+      "minimum": -10,
+      "maximum": 10
+     },
+     "calibration": {
+      "type": "number",
+      "example": 10,
+      "minimum": -10,
+      "maximum": 10
+     },
+     "circuit_type": {
+      "type": "string",
+      "enum": [
+       "SLAVE",
+       "MASTER"
+      ],
+      "example": "MASTER"
+     },
+     "differential_value": {
+      "type": "number",
+      "example": 15,
+      "minimum": 2,
+      "maximum": 20
+     },
+     "delay": {
+      "type": "number",
+      "example": 3,
+      "minimum": 0,
+      "maximum": 5400
+     },
+     "active_schedule": {
+      "type": "number",
+      "example": 1,
+      "minimum": 1,
+      "maximum": 4
+     },
+     "schedule_number": {
+      "type": "number",
+      "example": 1,
+      "minimum": 1,
+      "maximum": 4
+     },
+     "schedule_name": {
+      "type": "string",
+      "example": "Schedule 1"
+     },
+     "schedule": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "day": {
+         "type": "string",
+         "example": "wed"
+        },
+        "ranges": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "properties": {
+           "start": {
+            "type": "string",
+            "example": "00:00"
+           },
+           "end": {
+            "type": "string",
+            "example": "24:00"
+           },
+           "set_point": {
+            "type": "string",
+            "example": "22"
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "precision": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+     },
+     "setpoint_min": {
+      "type": "number",
+      "example": 10
+     },
+     "setpoint_max": {
+      "type": "number",
+      "example": 60
+     },
+     "garage_icon": {
+      "type": "string",
+      "enum": [
+       "GARAGE",
+       "DOOR",
+       "BARRIER",
+       "SLIDING_GATE"
+      ],
+      "example": "BARRIER"
+     },
+     "garage_sensor_enabled": {
+      "type": "boolean"
+     },
+     "garage_action": {
+      "type": "string",
+      "enum": [
+       "PULSE",
+       "STATE"
+      ],
+      "example": "PULSE"
+     },
+     "garage_boost_action": {
+      "type": "string",
+      "enum": [
+       "PULSE",
+       "STATE"
+      ],
+      "example": "PULSE"
+     },
+     "sensor_type": {
+      "type": "string",
+      "enum": [
+       "TEMPERATURE",
+       "HUMIDITY",
+       "HALL",
+       "LDR"
+      ],
+      "default": "TEMPERATURE"
+     },
+     "sensor_source": {
+      "type": "string",
+      "enum": [
+       "ONBOARD",
+       "RELAY",
+       "REMOTE"
+      ],
+      "default": "RELAY"
+     },
+     "sensor_id": {
+      "type": "number",
+      "default": 1
+     },
+     "sensor_number": {
+      "type": "number",
+      "default": 1
+     },
+     "sensor_name": {
+      "type": "string",
+      "example": "Bedroom"
+     },
+     "sensor_notification_min": {
+      "type": "number",
+      "example": "10"
+     },
+     "sensor_notification_max": {
+      "type": "number",
+      "example": "45"
+     },
+     "sensor_email_notification": {
+      "type": "boolean",
+      "example": "true"
+     },
+     "sensor_push_notification": {
+      "type": "boolean",
+      "example": "true"
+     },
+     "state_on_max_time": {
+      "type": "number",
+      "example": 43200,
+      "description": "PS Gate v2 - Max relay state ON time (seconds)",
+      "minimum": 60,
+      "maximum": 43200
+     },
+     "emergency_button_action": {
+      "type": "string",
+      "enum": [
+       "PULSE",
+       "STATE"
+      ],
+      "example": "PULSE"
+     },
+     "emergency_set_point": {
+      "type": "number",
+      "example": 23
+     }
+    }
+   },
+   "DeviceScheduleBody": {
+    "type": "object",
+    "properties": {
+     "relay": {
+      "type": "number",
+      "example": 1,
+      "minimum": 1,
+      "maximum": 4
+     },
+     "schedule_number": {
+      "type": "number",
+      "example": 1,
+      "minimum": 1,
+      "maximum": 4
+     },
+     "schedule_name": {
+      "type": "string",
+      "example": "Schedule 1"
+     },
+     "schedule": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "day": {
+         "type": "string",
+         "example": "wed"
+        },
+        "ranges": {
+         "type": "array",
+         "items": {
+          "type": "object",
+          "properties": {
+           "start": {
+            "type": "string",
+            "example": "00:00"
+           },
+           "end": {
+            "type": "string",
+            "example": "24:00"
+           },
+           "set_point": {
+            "type": "string",
+            "example": "22"
+           }
+          }
+         }
+        }
+       }
+      }
+     }
+    },
+    "required": [
+     "relay",
+     "schedule_number",
+     "schedule"
+    ]
+   },
+   "DeviceMeasurementsBody": {
+    "type": "object",
+    "properties": {
+     "period": {
+      "type": "string",
+      "enum": [
+       "1d",
+       "7d",
+       "1y"
+      ]
+     },
+     "grouping": {
+      "type": "string",
+      "enum": [
+       "5m",
+       "15m",
+       "1h"
+      ]
+     }
+    },
+    "required": [
+     "period",
+     "grouping"
+    ]
+   },
+   "DeviceSharingBody": {
+    "type": "object",
+    "properties": {
+     "email": {
+      "type": "string",
+      "example": "example@email.com"
+     },
+     "control_level": {
+      "type": "string",
+      "example": "limited_control",
+      "enum": [
+       "limited_control",
+       "full_control"
+      ]
+     }
+    },
+    "required": [
+     "email",
+     "control_level"
+    ]
+   }
+  }
+ }
+}
