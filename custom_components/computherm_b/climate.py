@@ -57,10 +57,12 @@ async def async_setup_entry(
             _LOGGER.debug("[%s] Device has empty base_info", device_id)
             return
 
+        # Mark before adding: async_add_entities can trigger a coordinator
+        # update that re-enters this callback before it returns.
+        existing_entities.add(device_id)
         _LOGGER.info("[%s] Creating climate entity", device_id)
         entity = ComputhermThermostat(coordinator, device_id)
         async_add_entities([entity], True)
-        existing_entities.add(device_id)
         _LOGGER.info("[%s] Climate entity created", device_id)
 
     # Add entities for devices that already have base_info
