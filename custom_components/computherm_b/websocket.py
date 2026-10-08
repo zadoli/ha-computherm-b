@@ -888,7 +888,8 @@ class WebSocketClient:
                     # No last message time or ping interval, continue waiting
                     continue
             except ConnectionClosed as error:
-                if error.rcvd.code not in (1000, 1005):
+                # rcvd is None when the connection dropped without a close frame
+                if error.rcvd is None or error.rcvd.code not in (1000, 1005):
                     _LOGGER.warning("WebSocket connection closed: %s", error)
                 return  # Exit to trigger reconnection
             except Exception as error:

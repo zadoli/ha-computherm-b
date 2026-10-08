@@ -5,6 +5,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from websockets.exceptions import ConnectionClosedError
 
 from custom_components.computherm_b.const import DeviceAttributes as DA
 from custom_components.computherm_b.websocket import WebSocketClient
@@ -68,3 +69,20 @@ async def test_handle_message_event_2():
 
     # Call the method under test
     await client._handle_message(message)
+
+
+@pytest.mark.asyncio
+async def test_process_messages_connection_closed_without_close_frame(caplog):
+    """A connection dropped without a close frame (rcvd is None) exits for reconnect, not as an error."""
+    client = WebSocketClient(
+        auth_token="token",
+        device_serials=["1111111111"],
+        data_callback=MagicMock(),
+    )
+    client.websocket = AsyncMock()
+    client.websocket.recv.side_effect = ConnectionClosedError(None, None)
+
+    await client._process_messages()
+
+    assert "Error receiving message" not in caplog.text
+    assert "WebSocket connection closed" in caplog.text
