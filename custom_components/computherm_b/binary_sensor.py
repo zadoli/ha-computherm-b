@@ -53,10 +53,6 @@ async def async_setup_entry(
             _add(f"{device_id}_relay_error",
                  lambda: ComputhermRelayErrorBinarySensor(coordinator, device_id))
 
-        if DA.BOOST_ACTIVE in device_data:
-            _add(f"{device_id}_boost",
-                 lambda: ComputhermBoostBinarySensor(coordinator, device_id))
-
         for sensor_key, sensor_info in device_data.get(DA.SENSOR_READINGS, {}).items():
             if DA.ERROR in sensor_info:
                 _add(f"{device_id}_{sensor_key}_error",
@@ -96,23 +92,6 @@ class ComputhermRelayErrorBinarySensor(ComputhermSensorBase, BinarySensorEntity)
     def is_on(self) -> bool | None:
         """Return true if the relay reports an error."""
         return self.device_data.get(DA.RELAY_ERROR)
-
-
-class ComputhermBoostBinarySensor(ComputhermSensorBase, BinarySensorEntity):
-    """Whether boost is active on the relay."""
-
-    _attr_device_class = BinarySensorDeviceClass.RUNNING
-    _attr_translation_key = "boost"
-    _attr_icon = "mdi:rocket-launch"
-
-    def _setup_entity_info(self) -> None:
-        """Set up entity information."""
-        self._attr_unique_id = f"{DOMAIN}_{self.device_id}_boost"
-
-    @property
-    def is_on(self) -> bool | None:
-        """Return true if boost is active."""
-        return self.device_data.get(DA.BOOST_ACTIVE)
 
 
 class ComputhermSensorErrorBinarySensor(ComputhermSensorBase, BinarySensorEntity):

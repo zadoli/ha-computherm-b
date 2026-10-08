@@ -29,6 +29,12 @@ Home Assistant integration for Computherm B Series WiFi thermostats. It provides
 ### Control Entities
 - **Mode Selector**: Switch between Manual, Schedule (Auto), and Off modes
 - **Function Selector**: Choose between Heating and Cooling operation
+- **Boost**: Switch to start/stop boost, with boost set point and duration (1–90 min) numbers; remaining boost time as a sensor
+- **Hysteresis**: Lower and upper switching hysteresis (0–20 °C)
+
+### Diagnostics
+- **Error flags**: Relay error and per-sensor error binary sensors (e.g. while a wired sensor reports N/A)
+- **Active schedule**: Number of the active schedule
 
 ### System Features
 - **Multi-Device Support**: Control multiple Computherm B Series devices from one account
@@ -85,6 +91,7 @@ The tested devices had only one input sensor and one relay output, so the integr
 The integration uses the official Computherm B Series API:
 - API Base URL: `https://api.computhermbseries.com`
 - Reverse-engineered Websocket API: `wss://api.computhermbseries.com/socket.io/?EIO=4&transport=websocket`
+- The REST API's OpenAPI description (served by the Swagger UI at the API root) is saved in `docs/api/prosmart-openapi.json`
 
 ## Error Handling
 

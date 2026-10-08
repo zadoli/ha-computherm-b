@@ -7,12 +7,13 @@ from typing import Any, Dict, List, Optional
 
 from aiohttp import ClientError, ClientResponseError, ClientSession
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import (DataUpdateCoordinator,
                                                       UpdateFailed)
 
-from .const import (API_BASE_URL, API_DEVICES_ENDPOINT, API_LOGIN_ENDPOINT,
+from .const import (API_BASE_URL, API_DEVICE_CONTROL_ENDPOINT,
+                    API_DEVICES_ENDPOINT, API_LOGIN_ENDPOINT,
                     API_SENSORS_ENDPOINT, API_WIFI_STATE_ENDPOINT, DOMAIN)
 from .const import DeviceAttributes as DA
 from .websocket import WebSocketClient
@@ -53,6 +54,8 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         self.session: ClientSession = async_get_clientsession(hass)
         self.auth_token: Optional[str] = None
         self.devices: Dict[str, Dict[str, Any]] = {}
+        # Boost duration (seconds) per device, used when boost is turned on; set by the number entity
+        self.boost_durations: Dict[str, int] = {}
         self.device_data: Dict[str, Dict[str, Any]] = {}
         # Track devices that have received base_info
         self.devices_with_base_info: Dict[str, Dict[str, Any]] = {}
@@ -127,6 +130,22 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
         except Exception as error:
             raise ComputhermError(
                 f"Unexpected error during authentication: {error}") from error
+
+    async def async_send_command(self, serial: str, command: Dict[str, Any]) -> None:
+        """Send a command (DevicesCommandsBody) to a device."""
+        device_id = self.devices.get(serial, {}).get(DA.DEVICE_ID)
+        if not device_id:
+            raise HomeAssistantError(f"No API device ID found for serial number {serial}")
+
+        async with self.session.post(
+            f"{API_BASE_URL}{API_DEVICE_CONTROL_ENDPOINT.format(device_id=device_id)}",
+            json=command,
+            headers={"Authorization": f"Bearer {self.auth_token}"},
+        ) as resp:
+            if not 200 <= resp.status < 300:
+                raise HomeAssistantError(
+                    f"Failed to send command {command}. Status: {resp.status}, Response: {await resp.text()}")
+        _LOGGER.info("[%s] Successfully sent command %s", serial, command)
 
     async def _fetch_devices(self) -> None:
         """Fetch list of devices for the user."""

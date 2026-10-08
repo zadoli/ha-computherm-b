@@ -86,17 +86,8 @@
             "uptime": {
                 "name": "Elindítva"
             },
-            "boost_set_point": {
-                "name": "Boost célhőmérséklet"
-            },
             "boost_remaining": {
                 "name": "Boost hátralévő idő"
-            },
-            "hysteresis_low": {
-                "name": "Alsó hiszterézis"
-            },
-            "hysteresis_high": {
-                "name": "Felső hiszterézis"
             },
             "active_schedule": {
                 "name": "Aktív program"
@@ -111,11 +102,27 @@
             "relay_error": {
                 "name": "Relé hiba"
             },
-            "boost": {
-                "name": "Boost"
-            },
             "sensor_error": {
                 "name": "{sensor_name} hiba"
+            }
+        },
+        "number": {
+            "boost_set_point": {
+                "name": "Boost célhőmérséklet"
+            },
+            "boost_duration": {
+                "name": "Boost időtartam"
+            },
+            "hysteresis_low": {
+                "name": "Alsó hiszterézis"
+            },
+            "hysteresis_high": {
+                "name": "Felső hiszterézis"
+            }
+        },
+        "switch": {
+            "boost": {
+                "name": "Boost"
             }
         }
     }

@@ -9,7 +9,7 @@ from homeassistant.components.binary_sensor import (BinarySensorDeviceClass,
 from homeassistant.components.sensor import (SensorDeviceClass, SensorEntity,
                                              SensorStateClass)
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfTemperature
+from homeassistant.const import PERCENTAGE, UnitOfTemperature, UnitOfTime
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -277,7 +277,7 @@ def _add_diagnostic_sensors(
             entities_to_add.append(ComputhermDHCPSensor(coordinator, device_id))
             existing_entities["dhcp_hostname"].add(device_id)
 
-    # Add relay setting sensors (boost, hysteresis, schedule) for the fields the device reports
+    # Add relay setting sensors (boost remaining, schedule) for the fields the device reports
     for key in RELAY_SETTING_SENSORS:
         entity_tracking_key = f"{device_id}_{key}"
         if key in device_data and entity_tracking_key not in existing_entities["relay_setting"]:
@@ -1050,19 +1050,16 @@ class ComputhermUptimeSensor(ComputhermSensorBase, SensorEntity):
         }
 
 
-# Relay setting sensors: data key -> (unit, device class, entity category, icon)
+# Relay setting sensors: data key -> (unit, device class, entity category, icon).
+# Boost set point and hysteresis are number entities (number.py).
 RELAY_SETTING_SENSORS: dict[str, tuple] = {
-    DA.BOOST_SET_POINT: (UnitOfTemperature.CELSIUS, SensorDeviceClass.TEMPERATURE, None, "mdi:rocket-launch"),
-    # Unit not confirmed yet (not observed during an active boost), so reported as a plain number
-    DA.BOOST_REMAINING: (None, None, None, "mdi:timer-sand"),
-    DA.HYSTERESIS_LOW: (UnitOfTemperature.CELSIUS, None, EntityCategory.DIAGNOSTIC, "mdi:arrow-collapse-down"),
-    DA.HYSTERESIS_HIGH: (UnitOfTemperature.CELSIUS, None, EntityCategory.DIAGNOSTIC, "mdi:arrow-collapse-up"),
+    DA.BOOST_REMAINING: (UnitOfTime.SECONDS, SensorDeviceClass.DURATION, None, "mdi:timer-sand"),
     DA.ACTIVE_SCHEDULE: (None, None, EntityCategory.DIAGNOSTIC, "mdi:calendar-clock"),
 }
 
 
 class ComputhermRelaySettingSensor(ComputhermSensorBase, SensorEntity):
-    """A relay setting reported over the WebSocket (boost, hysteresis, schedule)."""
+    """A relay value reported over the WebSocket (boost remaining, active schedule)."""
 
     def __init__(
         self,
