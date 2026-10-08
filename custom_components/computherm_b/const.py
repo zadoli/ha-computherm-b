@@ -55,6 +55,14 @@ class DeviceAttributes:
     RSSI: Final[str] = "rssi"
     RSSI_LEVEL: Final[str] = "rssi_level"
     SOURCE: Final[str] = "src"
+    ERROR: Final[str] = "err"  # Per-sensor error flag inside SENSOR_READINGS
+    RELAY_ERROR: Final[str] = "relay_error"
+    BOOST_ACTIVE: Final[str] = "boost_active"
+    BOOST_REMAINING: Final[str] = "boost_remaining"
+    BOOST_SET_POINT: Final[str] = "boost_set_point"
+    HYSTERESIS_LOW: Final[str] = "hysteresis_low"
+    HYSTERESIS_HIGH: Final[str] = "hysteresis_high"
+    ACTIVE_SCHEDULE: Final[str] = "active_schedule"
 
 
 # For backward compatibility

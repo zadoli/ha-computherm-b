@@ -63,11 +63,44 @@
             },
             "uptime": {
                 "name": "Started"
+            },
+            "boost_remaining": {
+                "name": "Boost remaining"
+            },
+            "active_schedule": {
+                "name": "Active schedule"
             }
         },
         "climate": {
             "computherm_b": {
                 "name": "Thermostat"
+            }
+        },
+        "binary_sensor": {
+            "relay_error": {
+                "name": "Relay error"
+            },
+            "sensor_error": {
+                "name": "{sensor_name} error"
+            }
+        },
+        "number": {
+            "boost_set_point": {
+                "name": "Boost set point"
+            },
+            "boost_duration": {
+                "name": "Boost duration"
+            },
+            "hysteresis_low": {
+                "name": "Lower hysteresis"
+            },
+            "hysteresis_high": {
+                "name": "Upper hysteresis"
+            }
+        },
+        "switch": {
+            "boost": {
+                "name": "Boost"
             }
         }
     },

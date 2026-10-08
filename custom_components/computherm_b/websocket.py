@@ -136,6 +136,9 @@ class WebSocketMessageHandler:
 
             device_update[DA.SENSOR_READINGS][sensor_key].update(sensor_metadata)
 
+            if DA.ERROR in reading:
+                device_update[DA.SENSOR_READINGS][sensor_key][DA.ERROR] = bool(reading[DA.ERROR])
+
             # Add common sensor attributes if present
             for attr in ["battery", "rssi", "rssi_level"]:
                 if attr in reading:
@@ -257,6 +260,15 @@ class WebSocketMessageHandler:
                 set_point = (None if relay["manual_set_point"] in ("N/A", "OFF")
                              else relay["manual_set_point"])
                 device_update[DA.TARGET_TEMPERATURE] = set_point
+
+            if DA.ERROR in relay:
+                device_update[DA.RELAY_ERROR] = bool(relay[DA.ERROR])
+
+            # Diagnostic relay settings, stored as received ("N/A" means unknown)
+            for attr in (DA.BOOST_ACTIVE, DA.BOOST_REMAINING, DA.BOOST_SET_POINT,
+                         DA.HYSTERESIS_LOW, DA.HYSTERESIS_HIGH, DA.ACTIVE_SCHEDULE):
+                if attr in relay:
+                    device_update[attr] = None if relay[attr] == "N/A" else relay[attr]
 
             # Store controlling sensor information for multi-sensor support
             if "controlling_src" in relay:

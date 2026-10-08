@@ -8,7 +8,8 @@ import pytest
 from websockets.exceptions import ConnectionClosedError
 
 from custom_components.computherm_b.const import DeviceAttributes as DA
-from custom_components.computherm_b.websocket import WebSocketClient
+from custom_components.computherm_b.websocket import (WebSocketClient,
+                                                      WebSocketMessageHandler)
 
 
 @pytest.mark.asyncio
@@ -86,3 +87,33 @@ async def test_process_messages_connection_closed_without_close_frame(caplog):
 
     assert "Error receiving message" not in caplog.text
     assert "WebSocket connection closed" in caplog.text
+
+
+def test_process_relays_and_readings_store_diagnostic_fields():
+    """Error flags and relay settings from a WebSocket event are stored for the entities."""
+    device_update = {}
+    WebSocketMessageHandler._process_readings(
+        [{"src": "RELAY", "sensor": 1, "type": "TEMPERATURE", "reading": 27.7, "err": True}],
+        "1111111111", device_update)
+    WebSocketMessageHandler._process_relays(
+        [{"relay": 1, "err": False, "boost_active": True, "boost_remaining": 30, "boost_set_point": 27.5,
+          "hysteresis_low": 0.1, "hysteresis_high": "N/A", "active_schedule": 1}],
+        "1111111111", device_update)
+
+    assert device_update[DA.SENSOR_READINGS]["RELAY_1"][DA.ERROR] is True
+    assert device_update[DA.RELAY_ERROR] is False
+    assert device_update[DA.BOOST_ACTIVE] is True
+    assert device_update[DA.BOOST_REMAINING] == 30
+    assert device_update[DA.BOOST_SET_POINT] == 27.5
+    assert device_update[DA.HYSTERESIS_LOW] == 0.1
+    assert device_update[DA.HYSTERESIS_HIGH] is None
+    assert device_update[DA.ACTIVE_SCHEDULE] == 1
+
+
+def test_process_relays_without_diagnostic_fields_leaves_them_unset():
+    """Partial relay updates must not overwrite stored values with None."""
+    device_update = {}
+    WebSocketMessageHandler._process_relays([{"relay": 1, "relay_state": "ON"}], "1111111111", device_update)
+
+    for key in (DA.RELAY_ERROR, DA.BOOST_ACTIVE, DA.HYSTERESIS_LOW, DA.ACTIVE_SCHEDULE):
+        assert key not in device_update
