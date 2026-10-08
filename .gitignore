@@ -2,3 +2,7 @@
 .clinerules/
 custom_components/computherm_b/__pycache__/
 tests/__pycache__/
+
+# Claude Code (local agent config)
+.claude/
+.mcp.json
