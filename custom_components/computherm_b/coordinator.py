@@ -395,8 +395,11 @@ class ComputhermDataUpdateCoordinator(DataUpdateCoordinator[Dict[str, Any]]):
             self, serial: str, device_data: Dict[str, Any]) -> None:
         """Process base_info update for a device."""
         self.devices_with_base_info[serial] = device_data["base_info"]
-        # Update with all data from device_data, including sensor_readings and current_temperature
-        self.device_data[serial].update(device_data)
+        # Update with all data except sensor_readings: those are deep-merged by _process_state_update,
+        # which runs right after. Replacing them here dropped sensors missing from the base_info event
+        # (their entities went unknown/unavailable until the next reading).
+        self.device_data[serial].update(
+            {k: v for k, v in device_data.items() if k != DA.SENSOR_READINGS})
 
         # Fetch sensor metadata and WiFi state to populate all sensor information
         base_info = device_data.get("base_info", {})
