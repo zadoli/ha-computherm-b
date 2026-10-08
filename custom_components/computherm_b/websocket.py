@@ -19,6 +19,9 @@ from .const import WebSocketConfig as WSC
 
 _LOGGER = logging.getLogger(__package__)
 
+# Reconnect if no device event arrived for this long (seconds); readings normally come every ~30 s
+DEVICE_DATA_TIMEOUT: Final[int] = 600
+
 # Create SSL context at module level, outside of any async context
 SSL_CONTEXT: Final = ssl.create_default_context()
 SSL_CONTEXT.load_default_certs()
@@ -446,6 +449,8 @@ class WebSocketClient:
         self._sid: Optional[str] = None
         self._ping_interval: Optional[float] = None
         self._last_message_time: Optional[datetime] = None
+        # Last device event; pings alone keep the connection alive even when no device data arrives
+        self._last_event_time: Optional[datetime] = None
         self._reconnect_interval: float = 10  # Start with 10 seconds
         self._max_reconnect_interval: Final[float] = 600  # Max 10 minutes
         self._reconnect_attempts: int = 0
@@ -561,6 +566,21 @@ class WebSocketClient:
                             asyncio.create_task(self.websocket.close())
                         except Exception as error:
                             _LOGGER.debug("Error closing stale websocket: %s", error)
+
+            # Pings keep the connection alive even if the server stopped sending device events
+            # (e.g. after a namespace disconnect), so also reconnect when device data is stale
+            if (self.websocket is not None and self._last_event_time is not None):
+                time_since_last_event = (datetime.now() - self._last_event_time).total_seconds()
+                if time_since_last_event > DEVICE_DATA_TIMEOUT:
+                    _LOGGER.warning(
+                        "Watchdog: no device data for %.0f sec (timeout: %d sec). Forcing reconnection...",
+                        time_since_last_event,
+                        DEVICE_DATA_TIMEOUT)
+                    self._last_event_time = None
+                    try:
+                        asyncio.create_task(self.websocket.close())
+                    except Exception as error:
+                        _LOGGER.debug("Error closing websocket without device data: %s", error)
 
             # Check every 10 seconds (increased from 5 for less aggressive monitoring)
             check_interval = 10.0
@@ -788,6 +808,7 @@ class WebSocketClient:
             # Initialize last message time immediately after successful login
             # This prevents watchdog from detecting stale connection during setup
             self._last_message_time = datetime.now()
+            self._last_event_time = datetime.now()
 
             # Check for authentication errors in the login response
             if "error" in login_response or "exception" in login_response:
@@ -957,6 +978,10 @@ class WebSocketClient:
                 time_since_last_message, message)
             # Set the flag to indicate we received a namespace disconnect message
             self._namespace_disconnect_received = True
+            # No more device events arrive on this connection: reconnect to subscribe again
+            _LOGGER.warning("Server disconnected the devices namespace, reconnecting")
+            if self.websocket:
+                await self.websocket.close()
             return
 
         result = self._message_handler.handle_websocket_message(message)
@@ -1040,4 +1065,5 @@ class WebSocketClient:
                     event_data["relays"], serial, device_update)
 
         # Notify callback with the update
+        self._last_event_time = datetime.now()
         self.data_callback({serial: device_update})

@@ -1,14 +1,16 @@
 """Unit tests for WebSocketClient in computherm_b integration."""
 
+import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from websockets.exceptions import ConnectionClosedError
 
 from custom_components.computherm_b.const import DeviceAttributes as DA
-from custom_components.computherm_b.websocket import (WebSocketClient,
+from custom_components.computherm_b.websocket import (DEVICE_DATA_TIMEOUT,
+                                                      WebSocketClient,
                                                       WebSocketMessageHandler)
 
 
@@ -117,3 +119,57 @@ def test_process_relays_without_diagnostic_fields_leaves_them_unset():
 
     for key in (DA.RELAY_ERROR, DA.BOOST_ACTIVE, DA.HYSTERESIS_LOW, DA.ACTIVE_SCHEDULE):
         assert key not in device_update
+
+
+def _client():
+    return WebSocketClient(auth_token="token", device_serials=["1111111111"], data_callback=MagicMock())
+
+
+@pytest.mark.asyncio
+async def test_namespace_disconnect_closes_connection_for_reconnect():
+    """After '41/devices' no device events arrive, so the connection is closed to resubscribe."""
+    client = _client()
+    client.websocket = AsyncMock()
+    client._last_message_time = datetime.now()
+
+    await client._handle_message("41/devices,")
+
+    client.websocket.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_watchdog_reconnects_when_device_data_is_stale(monkeypatch):
+    """Pings keep the connection alive; stale device data must still force a reconnect."""
+    client = _client()
+    client.websocket = AsyncMock()
+    client._last_message_time = datetime.now()
+    client._ping_interval = 25.0
+    client._last_event_time = datetime.now() - timedelta(seconds=DEVICE_DATA_TIMEOUT + 1)
+
+    async def stop_after_one_round(_):
+        client._stopping = True
+    monkeypatch.setattr(asyncio, "sleep", stop_after_one_round)
+
+    await client._connection_watchdog()
+    await asyncio.gather(*[t for t in asyncio.all_tasks() if t is not asyncio.current_task()])
+
+    client.websocket.close.assert_awaited_once()
+    assert client._last_event_time is None
+
+
+@pytest.mark.asyncio
+async def test_watchdog_keeps_connection_with_recent_device_data(monkeypatch):
+    """Fresh device data and pings: no reconnect."""
+    client = _client()
+    client.websocket = AsyncMock()
+    client._last_message_time = datetime.now()
+    client._ping_interval = 25.0
+    client._last_event_time = datetime.now()
+
+    async def stop_after_one_round(_):
+        client._stopping = True
+    monkeypatch.setattr(asyncio, "sleep", stop_after_one_round)
+
+    await client._connection_watchdog()
+
+    client.websocket.close.assert_not_awaited()
