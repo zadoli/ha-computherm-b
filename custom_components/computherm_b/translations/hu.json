@@ -85,11 +85,37 @@
             },
             "uptime": {
                 "name": "Elindítva"
+            },
+            "boost_set_point": {
+                "name": "Boost célhőmérséklet"
+            },
+            "boost_remaining": {
+                "name": "Boost hátralévő idő"
+            },
+            "hysteresis_low": {
+                "name": "Alsó hiszterézis"
+            },
+            "hysteresis_high": {
+                "name": "Felső hiszterézis"
+            },
+            "active_schedule": {
+                "name": "Aktív program"
             }
         },
         "climate": {
             "computherm_b": {
                 "name": "Termosztát"
+            }
+        },
+        "binary_sensor": {
+            "relay_error": {
+                "name": "Relé hiba"
+            },
+            "boost": {
+                "name": "Boost"
+            },
+            "sensor_error": {
+                "name": "{sensor_name} hiba"
             }
         }
     }

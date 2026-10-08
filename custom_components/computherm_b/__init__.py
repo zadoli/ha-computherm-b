@@ -51,6 +51,7 @@ _LOGGER.propagate = False  # Prevent duplicate logging
 
 
 PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
     Platform.CLIMATE,
     Platform.SENSOR,
     Platform.SELECT

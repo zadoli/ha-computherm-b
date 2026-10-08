@@ -50,6 +50,7 @@ async def async_setup_entry(
         "wifi_ip": set(),
         "dhcp_hostname": set(),
         "uptime": set(),
+        "relay_setting": set(),
     }
 
     @callback
@@ -275,6 +276,14 @@ def _add_diagnostic_sensors(
             _LOGGER.info("[%s] Creating DHCP hostname sensor", device_id)
             entities_to_add.append(ComputhermDHCPSensor(coordinator, device_id))
             existing_entities["dhcp_hostname"].add(device_id)
+
+    # Add relay setting sensors (boost, hysteresis, schedule) for the fields the device reports
+    for key in RELAY_SETTING_SENSORS:
+        entity_tracking_key = f"{device_id}_{key}"
+        if key in device_data and entity_tracking_key not in existing_entities["relay_setting"]:
+            _LOGGER.info("[%s] Creating %s sensor", device_id, key)
+            existing_entities["relay_setting"].add(entity_tracking_key)
+            entities_to_add.append(ComputhermRelaySettingSensor(coordinator, device_id, key))
 
     # Add uptime sensor if uptime data is available in system data
     system_data = device_data.get("system", {})
@@ -1039,3 +1048,43 @@ class ComputhermUptimeSensor(ComputhermSensorBase, SensorEntity):
             "minutes": uptime_data.get("minutes", 0),
             "seconds": uptime_data.get("seconds", 0),
         }
+
+
+# Relay setting sensors: data key -> (unit, device class, entity category, icon)
+RELAY_SETTING_SENSORS: dict[str, tuple] = {
+    DA.BOOST_SET_POINT: (UnitOfTemperature.CELSIUS, SensorDeviceClass.TEMPERATURE, None, "mdi:rocket-launch"),
+    # Unit not confirmed yet (not observed during an active boost), so reported as a plain number
+    DA.BOOST_REMAINING: (None, None, None, "mdi:timer-sand"),
+    DA.HYSTERESIS_LOW: (UnitOfTemperature.CELSIUS, None, EntityCategory.DIAGNOSTIC, "mdi:arrow-collapse-down"),
+    DA.HYSTERESIS_HIGH: (UnitOfTemperature.CELSIUS, None, EntityCategory.DIAGNOSTIC, "mdi:arrow-collapse-up"),
+    DA.ACTIVE_SCHEDULE: (None, None, EntityCategory.DIAGNOSTIC, "mdi:calendar-clock"),
+}
+
+
+class ComputhermRelaySettingSensor(ComputhermSensorBase, SensorEntity):
+    """A relay setting reported over the WebSocket (boost, hysteresis, schedule)."""
+
+    def __init__(
+        self,
+        coordinator: ComputhermDataUpdateCoordinator,
+        serial: str,
+        key: str,
+    ) -> None:
+        """Initialize the relay setting sensor."""
+        self.key = key
+        unit, device_class, entity_category, icon = RELAY_SETTING_SENSORS[key]
+        self._attr_native_unit_of_measurement = unit
+        self._attr_device_class = device_class
+        self._attr_entity_category = entity_category
+        self._attr_icon = icon
+        self._attr_translation_key = key
+        super().__init__(coordinator, serial)
+
+    def _setup_entity_info(self) -> None:
+        """Set up entity information."""
+        self._attr_unique_id = f"{DOMAIN}_{self.device_id}_{self.key}"
+
+    @property
+    def native_value(self) -> Any | None:
+        """Return the setting value."""
+        return self.device_data.get(self.key)
