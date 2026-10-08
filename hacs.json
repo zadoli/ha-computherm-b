@@ -1,4 +1,6 @@
 {
   "name": "Computherm B Series",
-  "render_readme": true
+  "render_readme": true,
+  "zip_release": true,
+  "filename": "computherm_b.zip"
 }
