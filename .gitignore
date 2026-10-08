@@ -3,6 +3,7 @@
 custom_components/computherm_b/__pycache__/
 tests/__pycache__/
 
-# Claude Code (local agent config)
+# Local agent config (Claude Code, memsearch)
 .claude/
 .mcp.json
+.memsearch/
