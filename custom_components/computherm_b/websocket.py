@@ -978,8 +978,9 @@ class WebSocketClient:
                 time_since_last_message, message)
             # Set the flag to indicate we received a namespace disconnect message
             self._namespace_disconnect_received = True
-            # No more device events arrive on this connection: reconnect to subscribe again
-            _LOGGER.warning("Server disconnected the devices namespace, reconnecting")
+            # No more device events arrive on this connection: reconnect to subscribe again.
+            # The server does this routinely (every few minutes), so not a warning.
+            _LOGGER.info("Server disconnected the devices namespace, reconnecting")
             if self.websocket:
                 await self.websocket.close()
             return
