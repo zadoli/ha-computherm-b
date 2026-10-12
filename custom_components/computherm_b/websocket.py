@@ -973,14 +973,13 @@ class WebSocketClient:
 
         # Socket.IO v4 namespace disconnect message
         elif message.startswith("41"):
+            # The server does this routinely (every ~7-8 minutes), so debug only.
             _LOGGER.debug(
-                "After %.1f sec, namespace disconnect message received: %s",
+                "After %.1f sec, server disconnected the devices namespace (%s), reconnecting",
                 time_since_last_message, message)
             # Set the flag to indicate we received a namespace disconnect message
             self._namespace_disconnect_received = True
             # No more device events arrive on this connection: reconnect to subscribe again.
-            # The server does this routinely (every few minutes), so not a warning.
-            _LOGGER.info("Server disconnected the devices namespace, reconnecting")
             if self.websocket:
                 await self.websocket.close()
             return
