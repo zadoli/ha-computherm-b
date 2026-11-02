@@ -713,7 +713,8 @@ class WebSocketClient:
             _LOGGER.debug("WebSocket connected successfully")
 
             await self._handle_initial_connection()
-            await self._setup_connection()
+            if not await self._setup_connection():
+                return  # Server rejected the subscription; reconnect with backoff
             await self._process_messages()
 
     async def _handle_initial_connection(self) -> None:
@@ -794,8 +795,12 @@ class WebSocketClient:
                         "device_serial": serial
                     })
 
-    async def _setup_connection(self) -> None:
-        """Set up the connection with login and subscriptions."""
+    async def _setup_connection(self) -> bool:
+        """Set up the connection with login and subscriptions.
+
+        Returns False if the server answered the subscription with an error
+        (e.g. 503); the connection is then closed and must not be read from.
+        """
         try:
             # Send login message
             login_message = WSC.MESSAGE_TEMPLATES["LOGIN"].format(
@@ -841,10 +846,11 @@ class WebSocketClient:
                 subscribe_response)
             if result:
                 should_close, _ = result
-                if should_close and self.websocket:
-                    await self.websocket.close()
-                    self.websocket = None  # Ensure websocket is set to None
-                    return
+                if should_close:
+                    if self.websocket:
+                        await self.websocket.close()
+                        self.websocket = None
+                    return False
 
             # Request properties for each device
             for serial in self.device_serials:
@@ -852,6 +858,7 @@ class WebSocketClient:
 
             # Start monitoring for devices that didn't receive base_info
             asyncio.create_task(self._monitor_base_info_timeout())
+            return True
         except Exception as error:
             _LOGGER.error("Error during setup: %s", error)
             if self.websocket:

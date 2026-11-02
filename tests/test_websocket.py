@@ -173,3 +173,38 @@ async def test_watchdog_keeps_connection_with_recent_device_data(monkeypatch):
     await client._connection_watchdog()
 
     client.websocket.close.assert_not_awaited()
+
+
+class _FakeConnect:
+    """Stand-in for websockets.connect(): an async context manager yielding a mock socket."""
+
+    def __init__(self, websocket):
+        self.websocket = websocket
+
+    async def __aenter__(self):
+        return self.websocket
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+@pytest.mark.asyncio
+async def test_subscribe_error_skips_message_loop(monkeypatch, caplog):
+    """A server error on subscribe (e.g. 503) closes the socket without a NoneType recv error."""
+    websocket = AsyncMock()
+    websocket.recv.side_effect = [
+        '0{"sid":"abc","pingInterval":25000}',
+        "40/devices,{}",
+        '42/devices,["exception",{"status":"error","message":"Service unavailable","code":503}]',
+    ]
+    monkeypatch.setattr(
+        "custom_components.computherm_b.websocket.websockets.connect",
+        lambda *args, **kwargs: _FakeConnect(websocket))
+    client = _client()
+
+    await client._handle_connection()
+
+    assert "Service unavailable" in caplog.text
+    assert "Error receiving message" not in caplog.text
+    websocket.close.assert_awaited_once()
+    assert websocket.recv.await_count == 3
